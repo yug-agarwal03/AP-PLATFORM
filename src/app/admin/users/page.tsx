@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { BulkUploadDialog } from '@/components/admin/BulkUploadDialog'
 
 export default async function UsersPage() {
     const supabase = createAdminClient()
@@ -40,23 +41,22 @@ export default async function UsersPage() {
         commissioner: 'bg-red-100 text-red-700',
     }
 
-
-
     return (
         <div className="space-y-6">
-
-
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Users</h1>
                     <p className="text-sm text-slate-500 mt-1">{enrichedUsers?.length ?? 0} users total</p>
                 </div>
-                <Link
-                    href="/admin/users/new"
-                    className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition-colors no-underline"
-                >
-                    Add User
-                </Link>
+                <div className="flex gap-2">
+                    <BulkUploadDialog />
+                    <Link
+                        href="/admin/users/new"
+                        className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors no-underline shadow-sm"
+                    >
+                        Add User
+                    </Link>
+                </div>
             </div>
 
             <div className="bg-gradient-to-br from-slate-900 to-black border border-slate-800 rounded-lg overflow-hidden">

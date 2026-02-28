@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
     let supabaseResponse = NextResponse.next({ request })
 
     const supabase = createServerClient(
@@ -25,10 +25,16 @@ export async function proxy(request: NextRequest) {
         }
     )
 
+    // IMPORTANT: Refreshing the session should be done before any getUser check
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user && request.nextUrl.pathname.startsWith('/admin')) {
         return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // Also protect the API
+    if (!user && request.nextUrl.pathname.startsWith('/api/admin')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     if (user && request.nextUrl.pathname === '/login') {
@@ -39,5 +45,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/admin/:path*', '/login'],
+    matcher: ['/admin/:path*', '/login', '/api/:path*'],
 }
