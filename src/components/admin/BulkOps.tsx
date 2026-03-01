@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as actions from '@/app/admin/users/actions';
 import { createClient } from '@/lib/supabase/client';
+import { useSearchParams } from 'next/navigation';
 
 // Icons as SVG components to avoid lucide-react dependency
 const Icons = {
@@ -42,7 +43,10 @@ interface BulkOpsProps {
 }
 
 const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => {
-    const [activeTab, setActiveTab] = useState<BulkOpsTab>('IMPORT_USERS');
+    const searchParams = useSearchParams();
+    const tabParam = searchParams.get('tab') as BulkOpsTab | null;
+
+    const [activeTab, setActiveTab] = useState<BulkOpsTab>(tabParam || 'IMPORT_USERS');
     const [actionLoading, setActionLoading] = useState(false);
 
     // Import Users State

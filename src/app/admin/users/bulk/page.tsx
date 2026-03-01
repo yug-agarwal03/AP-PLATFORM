@@ -1,3 +1,4 @@
+import React from 'react';
 import BulkOps from '@/components/admin/BulkOps';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -31,5 +32,9 @@ export default async function BulkUsersPage() {
         last_active: authUserMap.get(u.id)?.last_sign_in_at || null
     })) || [];
 
-    return <BulkOps users={enrichedUsers} districts={districts || []} />;
+    return (
+        <React.Suspense fallback={<div>Loading...</div>}>
+            <BulkOps users={enrichedUsers} districts={districts || []} />
+        </React.Suspense>
+    );
 }
