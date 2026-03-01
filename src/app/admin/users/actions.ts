@@ -140,3 +140,65 @@ export async function updateProfile(userId: string, data: { name?: string, phone
     revalidatePath('/admin/users')
     return { success: true }
 }
+
+export async function bulkReassign(userIds: string[], assignment: { awc_id?: string | null, mandal_id?: string | null, district_id?: string | null }) {
+    const supabase = createAdminClient()
+    const { error } = await supabase
+        .from('profiles')
+        .update(assignment)
+        .in('id', userIds)
+
+    if (error) throw error
+
+    await supabase.from('audit_log').insert(userIds.map(id => ({
+        user_id: id,
+        action: 'bulk_reassignment',
+        resource_type: 'assignment',
+        resource_id: id,
+        details: assignment,
+        purpose: 'Bulk administrative action'
+    })))
+
+    revalidatePath('/admin/users')
+    return { success: true }
+}
+
+export async function bulkUpdateStatus(userIds: string[], is_active: boolean) {
+    const supabase = createAdminClient()
+    const { error } = await supabase
+        .from('profiles')
+        .update({ is_active })
+        .in('id', userIds)
+
+    if (error) throw error
+
+    await supabase.from('audit_log').insert(userIds.map(id => ({
+        user_id: id,
+        action: 'bulk_status_update',
+        resource_type: 'profile',
+        resource_id: id,
+        details: { is_active },
+        purpose: 'Bulk administrative action'
+    })))
+
+    revalidatePath('/admin/users')
+    return { success: true }
+}
+
+export async function bulkDeleteUsers(userIds: string[]) {
+    const supabase = createAdminClient()
+
+    for (const userId of userIds) {
+        await supabase.auth.admin.deleteUser(userId)
+    }
+
+    const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .in('id', userIds)
+
+    if (error) throw error
+
+    revalidatePath('/admin/users')
+    return { success: true }
+}

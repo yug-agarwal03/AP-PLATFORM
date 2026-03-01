@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { BulkUploadDialog } from './BulkUploadDialog'
 import { UserDetail } from './UserDetail'
 
 interface UserTableProps {
@@ -114,7 +113,15 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                         </svg>
                         Export All
                     </button>
-                    <BulkUploadDialog />
+                    <Link
+                        href="/admin/users/bulk"
+                        className="bg-white text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors border border-slate-200 flex items-center gap-2 shadow-sm"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Bulk Operations
+                    </Link>
                     <Link
                         href="/admin/users/new"
                         className="bg-black text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-zinc-800 transition-all shadow-sm flex items-center gap-2"

@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Jiveesha ECD Platform
 
-## Getting Started
+![Platform Overview](https://img.shields.io/badge/Status-Beta-blue)
+![Built with Next.js](https://img.shields.io/badge/Built%20with-Next.js-black?logo=next.js)
+![Database Supabase](https://img.shields.io/badge/Backend-Supabase-green?logo=supabase)
 
-First, run the development server:
+A comprehensive Early Childhood Development (ECD) management platform designed to streamline child registration, developmental screening, and administrative oversight for state-wide programs.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🌟 Overview
+
+The Jiveesha ECD Platform empowers Anganwadi Workers (AWW), supervisors, and state officials with real-time data to monitor and improve child development outcomes. It bridges the gap between ground-level screening and administrative decision-making through a robust, scalable digital infrastructure.
+
+## 🚀 Key Features
+
+### 👥 User & Role Management
+- **Hierarchical RBAC**: Fine-grained permissions for AWWs, Screeners, CDPOs, DPOs, and Admins.
+- **Bulk Operations**: High-speed CSV imports, batch assignments to geographic units, and system-wide bulk actions.
+- **Dynamic Role Mapping**: Real-time permission updates across the interface based on role definitions.
+
+### 📍 Geographic Hierarchy
+- **Structured Mapping**: Management of Districts, Mandals (Projects), and Anganwadi Centers (AWC).
+- **Auto-Cascading Selectors**: Intelligent filtering of geographic units across the platform.
+
+### 📋 Screening & Tracking
+- **Child Registration**: Comprehensive profiles for children and caregivers.
+- **Developmental Screening**: Support for AI-driven protocols and standard questionnaires.
+- **Risk Scoring**: Automated risk assessment based on screening results.
+
+### 🔐 Security & Oversight
+- **Audit Logging**: Comprehensive tracking of all administrative actions for transparency.
+- **Supabase Integration**: Secure authentication and Row-Level Security (RLS) for data protection.
+- **Server Actions**: Secure, server-side data mutations with built-in validation.
+
+## 🛠️ Tech Stack
+
+- **Frontend**: [Next.js 15+](https://nextjs.org/) (App Router), [React 19](https://react.dev/)
+- **Styling**: Vanilla CSS with modern flex/grid layouts and premium aesthetics.
+- **Backend/Database**: [Supabase](https://supabase.com/) (PostgreSQL, Auth, Storage)
+- **Deployment**: Vercel
+- **Icons**: Custom optimized SVGs for performance and zero-dependency reliability.
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+- Node.js 20+ 
+- npm or yarn
+- A Supabase Project
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Daira-Edtech/AP-PLATFORM.git
+   cd AP-PLATFORM
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+   Create a `.env.local` file in the root directory:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+## 🏗️ Project Structure
+
+```text
+src/
+├── app/               # Next.js App Router (Pages, API Routes, Layouts)
+├── components/        # Reusable UI components
+│   ├── admin/         # Management-specific components (UserTable, BulkOps, etc.)
+│   └── shared/        # Cross-platform components
+├── lib/               # Utilities, Supabase clients, and Types
+└── middleware.ts      # Authentication and routing protection
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📜 Administrative Commands
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Seed Admin Users**:
+  ```bash
+  npm run seed:admins
+  ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛡️ License
 
-## Learn More
+This project is proprietary and confidential. Unauthorized copying of this file, via any medium, is strictly prohibited.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+© 2026 Jiveesha. All rights reserved.
