@@ -97,9 +97,12 @@ export function BulkUploadDialog() {
         <div className="inline-block">
             <button
                 onClick={() => setIsOpen(true)}
-                className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm hover:bg-slate-200 transition-colors border border-slate-200"
+                className="bg-white text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors border border-slate-200 flex items-center gap-2 shadow-sm"
             >
-                Bulk Upload
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Bulk Import
             </button>
 
             {isOpen && (

@@ -4,20 +4,52 @@ import { Profile } from '@/lib/types/database'
 import { User } from '@supabase/supabase-js'
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface HeaderProps {
     user: User
     profile: Profile | null
 }
 
+const PAGE_TITLES: Record<string, string> = {
+    '/admin/dashboard': 'Dashboard',
+    '/admin/users': 'User Management',
+    '/admin/users/bulk': 'Bulk Operations',
+    '/admin/roles': 'Role Permissions',
+    '/admin/geography': 'Geographic Hierarchy',
+    '/admin/geography/awcs': 'AWC Management',
+    '/admin/assignments': 'Assignment Map',
+    '/admin/health': 'System Health',
+    '/admin/audit-log': 'Audit Log',
+    '/admin/data': 'Data Management',
+    '/admin/notifications': 'Notifications',
+    '/admin/settings': 'Settings',
+}
+
 export default function Header({ user, profile }: HeaderProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     const router = useRouter()
+    const pathname = usePathname()
     const supabase = createClient()
 
+    // Improved logic to handle sub-paths and trailing slashes
+    const getPageTitle = () => {
+        // Sort keys by length descending to find the most specific match first
+        const sortedKeys = Object.keys(PAGE_TITLES).sort((a, b) => b.length - a.length)
+
+        for (const key of sortedKeys) {
+            if (pathname?.startsWith(key)) {
+                return PAGE_TITLES[key]
+            }
+        }
+        return 'Dashboard'
+    }
+
+    const pageTitle = getPageTitle()
+
     useEffect(() => {
+        console.log('Current Admin Path:', pathname)
         function handleClickOutside(event: MouseEvent) {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setIsMenuOpen(false)
@@ -35,7 +67,7 @@ export default function Header({ user, profile }: HeaderProps) {
 
     return (
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10 w-full">
-            <h1 className="text-xl font-semibold text-slate-800">Dashboard</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">{pageTitle}</h1>
 
             <div className="flex items-center gap-4">
                 <button className="relative p-2 text-slate-400 hover:text-slate-800 transition-colors rounded-full hover:bg-slate-100">
