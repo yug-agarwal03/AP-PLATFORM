@@ -23,8 +23,10 @@ export default async function AdminLayout({
 
     // Check for admin permissions
     if (!profile || (profile.role !== 'system_admin' && profile.role !== 'super_admin')) {
+        console.log(`Access Denied to ${user.email}. Role: ${profile?.role || 'none'}`)
         redirect('/login?error=Unauthorized')
     }
+
 
     return (
         <div className="min-h-screen bg-white font-sans text-slate-900">

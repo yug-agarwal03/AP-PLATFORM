@@ -8,19 +8,23 @@ export default async function BulkUsersPage() {
     const [
         { data: users },
         { data: authData },
-        { data: districts }
+        { data: states }
     ] = await Promise.all([
         supabase
             .from('profiles')
             .select(`
                 *,
                 awcs(name),
+                panchayats(name),
+                sectors(name),
                 mandals(name),
-                districts(name)
+                districts(name),
+                states(name)
             `),
         supabase.auth.admin.listUsers(),
-        supabase.from('districts').select('id, name').order('name')
+        supabase.from('states').select('id, name').order('name')
     ]);
+
 
     const authUserMap = new Map();
     authData?.users.forEach(u => {
@@ -34,7 +38,8 @@ export default async function BulkUsersPage() {
 
     return (
         <React.Suspense fallback={<div>Loading...</div>}>
-            <BulkOps users={enrichedUsers} districts={districts || []} />
+            <BulkOps users={enrichedUsers} states={states || []} />
         </React.Suspense>
     );
 }
+

@@ -29,76 +29,75 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     }
 })
 
-const superAdmins = [
+const adminsToSeed = [
     {
         email: 'admin@jiveesha.com',
         password: 'password123',
-        name: 'Super Admin'
+        name: 'Super Admin',
+        role: 'super_admin'
+    },
+    {
+        email: 'system@jiveesha.com',
+        password: 'password123',
+        name: 'System Admin',
+        role: 'system_admin'
     }
 ]
 
-async function seedSuperAdmins() {
-    console.log('--- Starting Super Admin Seeding ---')
+async function seedAdmins() {
+    console.log('--- Diagnosing Admin Seeding ---')
 
-    for (const admin of superAdmins) {
-        console.log(`Processing: ${admin.email}`)
+    for (const admin of adminsToSeed) {
+        console.log(`\nAttempting: ${admin.email}`)
 
-        // 1. Create/Get User in Auth
+        // Try with NO metadata first to see if it's a metadata access issue in trigger
         const { data: userData, error: userError } = await supabase.auth.admin.createUser({
             email: admin.email,
             password: admin.password,
             email_confirm: true,
-            user_metadata: { name: admin.name }
+            user_metadata: {
+                role: admin.role,
+                name: admin.name
+            }
         })
 
-        const isAlreadyRegistered = userError && (
-            userError.message.toLowerCase().includes('already registered') ||
-            userError.message.toLowerCase().includes('already exists') ||
-            (userError as any).status === 422
-        )
 
-        if (isAlreadyRegistered) {
-            console.log(`User ${admin.email} already exists. Updating profile...`)
-            const { data: listAllUsers, error: listError } = await supabase.auth.admin.listUsers()
-            if (listError) {
-                console.error(`Error listing users: ${listError.message}`)
-                continue
-            }
-            const user = listAllUsers.users.find(u => u.email === admin.email)
-            if (user) {
-                await updateProfile(user.id, admin.name)
+        if (userError) {
+            console.error(`Status: ${userError.status}, Message: ${userError.message}`)
+
+            // Re-listing to see if user was created anyway
+            const { data } = await supabase.auth.admin.listUsers()
+            const found = data?.users.find(u => u.email === admin.email)
+            if (found) {
+                console.log(`User was actually created with ID: ${found.id}. Syncing profile manually...`)
+                await updateProfile(found.id, admin.name, admin.role)
             } else {
-                console.error(`Could not find user ${admin.email} in Auth list.`)
+                console.log('User was NOT created.')
             }
-        } else if (userError) {
-            console.error(`Error creating user ${admin.email}:`, userError.message)
         } else if (userData.user) {
-            console.log(`User ${admin.email} created successfully with ID: ${userData.user.id}`)
-            await updateProfile(userData.user.id, admin.name)
+            console.log(`User created successfully: ${userData.user.id}`)
+            await updateProfile(userData.user.id, admin.name, admin.role)
         }
     }
-
-    console.log('--- Seeding Completed ---')
 }
 
-async function updateProfile(userId: string, name: string) {
-    console.log(`Updating profile for user ID: ${userId}`)
-
-    // The table uses 'name' instead of 'full_name'
+async function updateProfile(userId: string, name: string, role: string) {
     const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
             id: userId,
             name: name,
-            role: 'system_admin',
+            role: role,
             is_active: true
-        }, { onConflict: 'id' })
+        })
 
     if (profileError) {
-        console.error(`Error updating profile: ${profileError.message}`)
+        console.error(`Profile Sync Error: ${profileError.message}`)
     } else {
-        console.log('Profile updated as system_admin successfully.')
+        console.log(`Profile Synced.`)
     }
 }
 
-seedSuperAdmins().catch(console.error)
+
+
+seedAdmins().catch(console.error)

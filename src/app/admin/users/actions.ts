@@ -91,7 +91,14 @@ export async function forceLogout(userId: string) {
     return { success: true }
 }
 
-export async function reassignUser(userId: string, assignment: { awc_id?: string | null, mandal_id?: string | null, district_id?: string | null }) {
+export async function reassignUser(userId: string, assignment: {
+    state_id?: string | null,
+    district_id?: string | null,
+    mandal_id?: string | null,
+    sector_id?: string | null,
+    panchayat_id?: string | null,
+    awc_id?: string | null
+}) {
     const supabase = createAdminClient()
     const { error } = await supabase
         .from('profiles')
@@ -141,7 +148,14 @@ export async function updateProfile(userId: string, data: { name?: string, phone
     return { success: true }
 }
 
-export async function bulkReassign(userIds: string[], assignment: { awc_id?: string | null, mandal_id?: string | null, district_id?: string | null }) {
+export async function bulkReassign(userIds: string[], assignment: {
+    state_id?: string | null,
+    district_id?: string | null,
+    mandal_id?: string | null,
+    sector_id?: string | null,
+    panchayat_id?: string | null,
+    awc_id?: string | null
+}) {
     const supabase = createAdminClient()
     const { error } = await supabase
         .from('profiles')
@@ -162,6 +176,7 @@ export async function bulkReassign(userIds: string[], assignment: { awc_id?: str
     revalidatePath('/admin/users')
     return { success: true }
 }
+
 
 export async function bulkUpdateStatus(userIds: string[], is_active: boolean) {
     const supabase = createAdminClient()

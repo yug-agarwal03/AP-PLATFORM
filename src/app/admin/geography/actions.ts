@@ -199,3 +199,27 @@ export async function deleteEntity(id: string, type: string) {
     if (error) throw error
     revalidatePath('/admin/geography')
 }
+
+export async function createEntity(type: string, data: any) {
+    const supabase = getAdminClient()
+    let table = ''
+
+    switch (type) {
+        case 'STATE': table = 'states'; break;
+        case 'DISTRICT': table = 'districts'; break;
+        case 'MANDAL': table = 'mandals'; break;
+        case 'SECTOR': table = 'sectors'; break;
+        case 'PANCHAYAT': table = 'panchayats'; break;
+        case 'AWC': table = 'awcs'; break;
+        default: throw new Error('Invalid type');
+    }
+
+    const { error } = await supabase.from(table).insert([data])
+    if (error) {
+        console.error('Create error:', error);
+        throw error;
+    }
+
+    revalidatePath('/admin/geography')
+}
+

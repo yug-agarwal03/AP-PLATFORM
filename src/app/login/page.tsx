@@ -1,17 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
+    const searchParams = useSearchParams()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(searchParams.get('error'))
     const router = useRouter()
     const supabase = createClient()
+
+    useEffect(() => {
+        const err = searchParams.get('error')
+        if (err) setError(err)
+    }, [searchParams])
+
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -135,6 +142,21 @@ export default function LoginPage() {
                             {loading ? 'Authenticating...' : 'Sign In'}
                         </button>
                     </form>
+
+                    {error && (
+                        <div className="text-center">
+                            <button
+                                onClick={async () => {
+                                    await supabase.auth.signOut()
+                                    router.replace('/login')
+                                    setError(null)
+                                }}
+                                className="text-[10px] text-zinc-400 font-bold hover:text-black hover:underline uppercase tracking-widest mt-2"
+                            >
+                                Sign out of current session
+                            </button>
+                        </div>
+                    )}
 
                     <div className="pt-8">
                         <p className="text-[10px] text-zinc-400 font-medium text-center leading-relaxed">

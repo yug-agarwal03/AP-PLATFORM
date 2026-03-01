@@ -46,7 +46,7 @@ export async function POST(req: Request) {
         // Process in a loop
         for (const userData of usersToCreate) {
             try {
-                const { email, password, name, role, phone, awc_id, mandal_id, district_id } = userData
+                const { email, password, name, role, phone, awc_id, panchayat_id, sector_id, mandal_id, district_id, state_id } = userData
 
                 // Create Auth User
                 const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
@@ -73,10 +73,14 @@ export async function POST(req: Request) {
                             phone: phone || null,
                             role: role || 'aww',
                             awc_id: awc_id || null,
+                            panchayat_id: panchayat_id || null,
+                            sector_id: sector_id || null,
                             mandal_id: mandal_id || null,
                             district_id: district_id || null,
+                            state_id: state_id || null,
                             is_active: true
                         })
+
 
                     if (profileError) {
                         results.failed++

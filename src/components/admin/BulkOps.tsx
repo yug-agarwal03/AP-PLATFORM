@@ -39,10 +39,10 @@ type ImportStep = 'UPLOAD' | 'VALIDATION' | 'PROCESSING' | 'RESULTS';
 
 interface BulkOpsProps {
     users: any[];
-    districts: any[];
+    states: any[];
 }
 
-const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => {
+const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, states }) => {
     const searchParams = useSearchParams();
     const tabParam = searchParams.get('tab') as BulkOpsTab | null;
 
@@ -59,8 +59,19 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
 
     // Bulk Assign State
     const [selectedAssignUserIds, setSelectedAssignUserIds] = useState<Set<string>>(new Set());
-    const [assignTarget, setAssignTarget] = useState({ district: '', mandal: '', awc: '' });
+    const [assignTarget, setAssignTarget] = useState({
+        state: '',
+        district: '',
+        mandal: '',
+        sector: '',
+        panchayat: '',
+        awc: ''
+    });
+
+    const [districts, setDistricts] = useState<any[]>([]);
     const [mandals, setMandals] = useState<any[]>([]);
+    const [sectors, setSectors] = useState<any[]>([]);
+    const [panchayats, setPanchayats] = useState<any[]>([]);
     const [awcs, setAwcs] = useState<any[]>([]);
 
     // Bulk Actions State
@@ -69,26 +80,68 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
 
     const supabase = createClient();
 
-    // Fetch Mandals & AWCs for Bulk Assign
+    // Cascading Fetchers
+    useEffect(() => {
+        if (assignTarget.state) {
+            supabase.from('districts').select('id, name').eq('state_id', assignTarget.state).order('name')
+                .then(({ data }) => setDistricts(data || []));
+            setAssignTarget(prev => ({ ...prev, district: '', mandal: '', sector: '', panchayat: '', awc: '' }));
+        } else {
+            setDistricts([]);
+            setAssignTarget(prev => ({ ...prev, district: '', mandal: '', sector: '', panchayat: '', awc: '' }));
+        }
+    }, [assignTarget.state]);
+
     useEffect(() => {
         if (assignTarget.district) {
             supabase.from('mandals').select('id, name').eq('district_id', assignTarget.district).order('name')
                 .then(({ data }) => setMandals(data || []));
-            setAssignTarget(prev => ({ ...prev, mandal: '', awc: '' }));
+            setAssignTarget(prev => ({ ...prev, mandal: '', sector: '', panchayat: '', awc: '' }));
         } else {
             setMandals([]);
+            setAssignTarget(prev => ({ ...prev, mandal: '', sector: '', panchayat: '', awc: '' }));
         }
     }, [assignTarget.district]);
 
     useEffect(() => {
         if (assignTarget.mandal) {
-            supabase.from('awcs').select('id, name').eq('mandal_id', assignTarget.mandal).order('name')
+            supabase.from('sectors').select('id, name').eq('mandal_id', assignTarget.mandal).order('name')
+                .then(({ data }) => setSectors(data || []));
+            setAssignTarget(prev => ({ ...prev, sector: '', panchayat: '', awc: '' }));
+        } else {
+            setSectors([]);
+            setAssignTarget(prev => ({ ...prev, sector: '', panchayat: '', awc: '' }));
+        }
+    }, [assignTarget.mandal]);
+
+    useEffect(() => {
+        if (assignTarget.sector) {
+            supabase.from('panchayats').select('id, name').eq('sector_id', assignTarget.sector).order('name')
+                .then(({ data }) => setPanchayats(data || []));
+            setAssignTarget(prev => ({ ...prev, panchayat: '', awc: '' }));
+        } else {
+            setPanchayats([]);
+            setAssignTarget(prev => ({ ...prev, panchayat: '', awc: '' }));
+        }
+    }, [assignTarget.sector]);
+
+    useEffect(() => {
+        if (assignTarget.panchayat) {
+            supabase.from('awcs').select('id, name').eq('panchayat_id', assignTarget.panchayat).order('name')
+                .then(({ data }) => setAwcs(data || []));
+            setAssignTarget(prev => ({ ...prev, awc: '' }));
+        } else if (assignTarget.sector) {
+            // Also fetch AWCs that might be linked directly to sector (depending on schema usage)
+            // But usually AWC is under Panchayat. In some cases Panchayat might be NULL.
+            supabase.from('awcs').select('id, name').eq('sector_id', assignTarget.sector).order('name')
                 .then(({ data }) => setAwcs(data || []));
             setAssignTarget(prev => ({ ...prev, awc: '' }));
         } else {
             setAwcs([]);
+            setAssignTarget(prev => ({ ...prev, awc: '' }));
         }
-    }, [assignTarget.mandal]);
+    }, [assignTarget.panchayat, assignTarget.sector]);
+
 
     const handleFileUpload = (file: File) => {
         setSelectedFile(file);
@@ -155,8 +208,11 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
         setActionLoading(true);
         try {
             await actions.bulkReassign(Array.from(selectedAssignUserIds), {
+                state_id: assignTarget.state || null,
                 district_id: assignTarget.district || null,
                 mandal_id: assignTarget.mandal || null,
+                sector_id: assignTarget.sector || null,
+                panchayat_id: assignTarget.panchayat || null,
                 awc_id: assignTarget.awc || null
             });
             alert('Reassignment successful');
@@ -167,6 +223,7 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
             setActionLoading(false);
         }
     };
+
 
     const handleBulkAction = async () => {
         if (bulkActionTargetIds.size === 0 || !selectedAction) return;
@@ -224,7 +281,7 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
                             <div className="mt-6 flex justify-between items-center">
                                 <button
                                     onClick={() => {
-                                        const headers = 'name,email,password,phone,role,awc_id,mandal_id,district_id\n';
+                                        const headers = 'name,email,password,phone,role,state_id,district_id,mandal_id,sector_id,panchayat_id,awc_id\n';
                                         const blob = new Blob([headers], { type: 'text/csv' });
                                         const url = window.URL.createObjectURL(blob);
                                         const a = document.createElement('a');
@@ -251,10 +308,11 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
                             <Icons.AlertTriangle className="text-amber-500 mt-0.5" />
                             <div className="text-[12px] text-gray-600">
                                 <p className="font-bold text-black mb-1 uppercase tracking-tight">Required CSV Headers</p>
-                                <p>name, email, password, phone, role, awc_id, mandal_id, district_id</p>
+                                <p>name, email, password, phone, role, state_id, district_id, mandal_id, sector_id, panchayat_id, awc_id</p>
                             </div>
                         </div>
                     </div>
+
                 );
             case 'VALIDATION':
                 const stats = {
@@ -424,11 +482,20 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
 
                 <div className="bg-white border border-[#E5E5E5] rounded-xl p-8 shadow-sm space-y-6">
                     <h3 className="text-[14px] font-bold text-black uppercase tracking-widest">Assign Selected to Hierarchy</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <select
+                            value={assignTarget.state}
+                            onChange={(e) => setAssignTarget({ ...assignTarget, state: e.target.value })}
+                            className="h-11 px-4 bg-gray-50 border-none rounded-lg text-[13px] font-medium outline-none"
+                        >
+                            <option value="">Select State</option>
+                            {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
                         <select
                             value={assignTarget.district}
                             onChange={(e) => setAssignTarget({ ...assignTarget, district: e.target.value })}
-                            className="h-11 px-4 bg-gray-50 border-none rounded-lg text-[13px] font-medium outline-none"
+                            disabled={!assignTarget.state}
+                            className="h-11 px-4 bg-gray-50 border-none rounded-lg text-[13px] font-medium outline-none disabled:opacity-50"
                         >
                             <option value="">Select District</option>
                             {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -443,24 +510,45 @@ const BulkOps: React.FC<BulkOpsProps> = ({ users: initialUsers, districts }) => 
                             {mandals.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                         </select>
                         <select
+                            value={assignTarget.sector}
+                            onChange={(e) => setAssignTarget({ ...assignTarget, sector: e.target.value })}
+                            disabled={!assignTarget.mandal}
+                            className="h-11 px-4 bg-gray-50 border-none rounded-lg text-[13px] font-medium outline-none disabled:opacity-50"
+                        >
+                            <option value="">Select Sector</option>
+                            {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <select
+                            value={assignTarget.panchayat}
+                            onChange={(e) => setAssignTarget({ ...assignTarget, panchayat: e.target.value })}
+                            disabled={!assignTarget.sector}
+                            className="h-11 px-4 bg-gray-50 border-none rounded-lg text-[13px] font-medium outline-none disabled:opacity-50"
+                        >
+                            <option value="">Select Panchayat</option>
+                            {panchayats.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                        <select
                             value={assignTarget.awc}
                             onChange={(e) => setAssignTarget({ ...assignTarget, awc: e.target.value })}
-                            disabled={!assignTarget.mandal}
+                            disabled={!assignTarget.panchayat && !assignTarget.sector}
                             className="h-11 px-4 bg-gray-50 border-none rounded-lg text-[13px] font-medium outline-none disabled:opacity-50"
                         >
                             <option value="">Select AWC</option>
                             {awcs.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
+                    </div>
+                    <div className="flex justify-end pt-4">
                         <button
                             onClick={handleBulkAssign}
                             disabled={selectedAssignUserIds.size === 0 || actionLoading}
-                            className="w-full h-11 bg-black text-white rounded-lg text-[13px] font-bold hover:bg-gray-800 disabled:opacity-50 transition-all flex items-center justify-center space-x-2 shadow-lg shadow-black/5"
+                            className="px-8 py-3 bg-black text-white rounded-lg text-[13px] font-bold hover:bg-gray-800 disabled:opacity-50 transition-all flex items-center justify-center space-x-2 shadow-lg shadow-black/5"
                         >
                             <Icons.UserCheck size={16} />
                             <span>{actionLoading ? 'Assigning...' : `Assign ${selectedAssignUserIds.size || ''} Users`}</span>
                         </button>
                     </div>
                 </div>
+
             </div>
         );
     };

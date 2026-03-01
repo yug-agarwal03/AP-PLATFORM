@@ -57,7 +57,60 @@ const GeographyHierarchy: React.FC = () => {
     const [detailLoading, setDetailLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({ name: '', code: '', latitude: '', longitude: '' });
+    const [isAdding, setIsAdding] = useState(false);
+    const [newEntityData, setNewEntityData] = useState<any>({ name: '', code: '', type: '', parentId: '' });
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleCreate = async () => {
+        if (!newEntityData.name || !newEntityData.code) {
+            alert('Name and Code are required');
+            return;
+        }
+        setSaving(true);
+        try {
+            const data: any = {
+                name: newEntityData.name,
+                code: newEntityData.code
+            };
+
+            // Mapping parents
+            if (newEntityData.type === 'DISTRICT') data.state_id = newEntityData.parentId;
+            if (newEntityData.type === 'MANDAL') data.district_id = newEntityData.parentId;
+            if (newEntityData.type === 'SECTOR') data.mandal_id = newEntityData.parentId;
+            if (newEntityData.type === 'PANCHAYAT') data.sector_id = newEntityData.parentId;
+            if (newEntityData.type === 'AWC') {
+                data.sector_id = newEntityData.parentId;
+                // For AWC, we might need mandal_id as well if it's required by schema
+                // In v4 schema, mandal_id IS NOT NULL for awcs
+                if (newEntityData.parentType === 'SECTOR') {
+                    // We need to find the mandal_id of the sector
+                    // The tree data search or actions
+                    const sectorDetails = await actions.getEntityDetails(newEntityData.parentId, 'SECTOR');
+                    data.mandal_id = sectorDetails.mandal_id;
+                    data.panchayat_id = null;
+                } else if (newEntityData.parentType === 'PANCHAYAT') {
+                    const panchayatDetails = await actions.getEntityDetails(newEntityData.parentId, 'PANCHAYAT');
+                    const sectorDetails = await actions.getEntityDetails(panchayatDetails.sector_id, 'SECTOR');
+                    data.panchayat_id = newEntityData.parentId;
+                    data.sector_id = panchayatDetails.sector_id;
+                    data.mandal_id = sectorDetails.mandal_id;
+                }
+                data.latitude = newEntityData.latitude ? parseFloat(newEntityData.latitude) : null;
+                data.longitude = newEntityData.longitude ? parseFloat(newEntityData.longitude) : null;
+            }
+
+            await actions.createEntity(newEntityData.type, data);
+            alert('Created successfully');
+            setIsAdding(false);
+            setNewEntityData({ name: '', code: '', type: '', parentId: '' });
+            fetchHierarchy();
+        } catch (err: any) {
+            alert('Error creating: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
 
     const fetchHierarchy = async () => {
         setLoading(true);
@@ -319,7 +372,19 @@ const GeographyHierarchy: React.FC = () => {
             <div className="flex-1 min-h-0 flex gap-6 pb-6">
                 <div className="w-[450px] bg-white border border-[#E5E5E5] rounded-xl flex flex-col shadow-sm overflow-hidden shrink-0">
                     <div className="p-4 border-b border-gray-100 bg-gray-50/30">
-                        <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Hierarchy Tree</h3>
+                        <div className="flex justify-between items-center mb-3 px-1">
+                            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Hierarchy Tree</h3>
+                            <button
+                                onClick={() => {
+                                    setIsAdding(true);
+                                    setNewEntityData({ name: '', code: '', type: 'STATE', parentId: '' });
+                                }}
+                                className="p-1.5 hover:bg-gray-200 rounded text-gray-600 transition-colors"
+                                title="Add State"
+                            >
+                                <Icons.Plus size={16} />
+                            </button>
+                        </div>
                         <div className="relative">
                             <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
@@ -353,6 +418,79 @@ const GeographyHierarchy: React.FC = () => {
                             <Icons.Loader2 className="animate-spin text-black" size={32} />
                             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Fetching Node Details...</p>
                         </div>
+                    ) : isAdding ? (
+                        <div className="bg-white border border-[#E5E5E5] rounded-xl p-8 shadow-sm space-y-8 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex justify-between items-center">
+                                <div className="space-y-1">
+                                    <h2 className="text-[20px] font-bold text-black">Add New {TYPE_LABELS[newEntityData.type]}</h2>
+                                    {newEntityData.parentId && (
+                                        <p className="text-[13px] text-gray-500">Under: {selectedNode?.name}</p>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => setIsAdding(false)}
+                                    className="px-4 py-2 border border-gray-200 rounded text-[13px] font-bold hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Entity Name</label>
+                                    <input
+                                        type="text"
+                                        value={newEntityData.name}
+                                        onChange={(e) => setNewEntityData({ ...newEntityData, name: e.target.value })}
+                                        className="w-full h-11 px-4 bg-gray-50 border border-transparent rounded-lg focus:bg-white focus:border-black transition-all outline-none text-[14px] font-medium"
+                                        placeholder={`e.g. ${TYPE_LABELS[newEntityData.type]} Name`}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Entity Code</label>
+                                    <input
+                                        type="text"
+                                        value={newEntityData.code}
+                                        onChange={(e) => setNewEntityData({ ...newEntityData, code: e.target.value })}
+                                        className="w-full h-11 px-4 bg-gray-50 border border-transparent rounded-lg focus:bg-white focus:border-black transition-all outline-none text-[14px] font-medium uppercase"
+                                        placeholder={`e.g. ${newEntityData.type.substring(0, 3)}001`}
+                                    />
+                                </div>
+                                {newEntityData.type === 'AWC' && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Latitude</label>
+                                            <input
+                                                type="text"
+                                                value={newEntityData.latitude || ''}
+                                                onChange={(e) => setNewEntityData({ ...newEntityData, latitude: e.target.value })}
+                                                className="w-full h-11 px-4 bg-gray-50 border border-transparent rounded-lg focus:bg-white focus:border-black transition-all outline-none text-[14px] font-medium"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Longitude</label>
+                                            <input
+                                                type="text"
+                                                value={newEntityData.longitude || ''}
+                                                onChange={(e) => setNewEntityData({ ...newEntityData, longitude: e.target.value })}
+                                                className="w-full h-11 px-4 bg-gray-50 border border-transparent rounded-lg focus:bg-white focus:border-black transition-all outline-none text-[14px] font-medium"
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="pt-8 flex justify-end">
+                                <button
+                                    onClick={handleCreate}
+                                    disabled={saving}
+                                    className="px-8 py-2.5 bg-black text-white rounded-lg text-[13px] font-bold hover:bg-gray-800 transition-colors flex items-center space-x-2 shadow-lg shadow-black/10 disabled:opacity-50"
+                                >
+                                    <Icons.Plus size={16} />
+                                    <span>{saving ? 'Creating...' : `Create ${TYPE_LABELS[newEntityData.type]}`}</span>
+                                </button>
+                            </div>
+                        </div>
                     ) : selectedNode ? (
                         <>
                             <div className="bg-white border border-[#E5E5E5] rounded-xl p-8 shadow-sm space-y-8 animate-in slide-in-from-right-4 duration-300">
@@ -375,13 +513,59 @@ const GeographyHierarchy: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={handleDelete}
-                                        className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-all"
-                                        title="Delete this entity"
-                                    >
-                                        <Icons.Trash2 size={20} />
-                                    </button>
+                                    <div className="flex items-center space-x-2">
+                                        {selectedNode.type !== 'AWC' && (
+                                            <button
+                                                onClick={() => {
+                                                    setIsAdding(true);
+                                                    let nextType = '';
+                                                    switch (selectedNode.type) {
+                                                        case 'STATE': nextType = 'DISTRICT'; break;
+                                                        case 'DISTRICT': nextType = 'MANDAL'; break;
+                                                        case 'MANDAL': nextType = 'SECTOR'; break;
+                                                        case 'SECTOR': nextType = 'PANCHAYAT'; break;
+                                                        case 'PANCHAYAT': nextType = 'AWC'; break;
+                                                    }
+                                                    setNewEntityData({
+                                                        name: '',
+                                                        code: '',
+                                                        type: nextType,
+                                                        parentId: selectedNode.id,
+                                                        parentType: selectedNode.type
+                                                    });
+                                                }}
+                                                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded text-[11px] font-bold hover:bg-gray-200 transition-all shadow-sm"
+                                            >
+                                                <Icons.Plus size={14} />
+                                                <span>Add {selectedNode.type === 'SECTOR' ? 'Panchayat' : selectedNode.type === 'PANCHAYAT' ? 'AWC' : 'Child'}</span>
+                                            </button>
+                                        )}
+                                        {selectedNode.type === 'SECTOR' && (
+                                            <button
+                                                onClick={() => {
+                                                    setIsAdding(true);
+                                                    setNewEntityData({
+                                                        name: '',
+                                                        code: '',
+                                                        type: 'AWC',
+                                                        parentId: selectedNode.id,
+                                                        parentType: 'SECTOR'
+                                                    });
+                                                }}
+                                                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded text-[11px] font-bold hover:bg-gray-200 transition-all shadow-sm"
+                                            >
+                                                <Icons.Plus size={14} />
+                                                <span>Add AWC</span>
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={handleDelete}
+                                            className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-all"
+                                            title="Delete this entity"
+                                        >
+                                            <Icons.Trash2 size={20} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-6">
@@ -491,6 +675,7 @@ const GeographyHierarchy: React.FC = () => {
                         </div>
                     )}
                 </div>
+
             </div>
         </div>
     );
