@@ -59,8 +59,8 @@ export default function Sidebar() {
                                         key={item.href}
                                         href={item.href}
                                         className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${isActive
-                                                ? 'bg-slate-900 text-white shadow-md shadow-slate-200'
-                                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                            ? 'bg-slate-900 text-white shadow-md shadow-slate-200'
+                                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                                             }`}
                                     >
                                         <svg
@@ -68,9 +68,10 @@ export default function Sidebar() {
                                                 }`}
                                             fill="none"
                                             stroke="currentColor"
+                                            strokeWidth={isActive ? 2.5 : 2}
                                             viewBox="0 0 24 24"
                                         >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isActive ? 2.5 : 2} d={item.icon} />
+                                            <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                                         </svg>
                                         {item.label}
                                     </Link>

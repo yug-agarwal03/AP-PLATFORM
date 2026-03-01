@@ -66,7 +66,7 @@ export default function Header({ user, profile }: HeaderProps) {
     }
 
     return (
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10 w-full">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-50 w-full">
             <h1 className="text-xl font-bold tracking-tight text-slate-900">{pageTitle}</h1>
 
             <div className="flex items-center gap-4">

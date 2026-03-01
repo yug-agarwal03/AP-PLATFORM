@@ -1,1 +1,7 @@
-- make role permission page functional.
+- [x] make role permission page functional.
+- [x] system health page is functional.
+- [x] audit log page is functional.
+- [x] settings page is functional.
+- [x] data management page is functional.
+- [x] assignment map page is functional.
+- [x] notifications page is functional.
