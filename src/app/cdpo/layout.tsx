@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import CdpoShell from '@/components/cdpo/CdpoShell'
 
 export default async function CDPOLayout({
     children,
@@ -22,22 +23,12 @@ export default async function CDPOLayout({
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-            <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-bold text-sm rounded">J</div>
-                    <div>
-                        <span className="text-sm font-bold tracking-tight">CDPO Portal</span>
-                        <p className="text-[10px] text-zinc-400">Jiveesha ECD Platform</p>
-                    </div>
-                </div>
-                <div className="text-xs text-zinc-500">
-                    {profile.name} • <span className="uppercase text-[10px] font-bold text-amber-600">CDPO</span>
-                </div>
-            </header>
-            <main className="p-8">
-                {children}
-            </main>
-        </div>
+        <CdpoShell
+            userName={profile.name}
+            userEmail={profile.email || ''}
+            avatarUrl={profile.avatar_url}
+        >
+            {children}
+        </CdpoShell>
     )
 }

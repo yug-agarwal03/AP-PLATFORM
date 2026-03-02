@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getRoleDashboard } from '@/lib/roles'
 
-export default function LoginPage() {
+function LoginForm() {
     const searchParams = useSearchParams()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -78,21 +78,6 @@ export default function LoginPage() {
                             Secure access for every level of the ICDS hierarchy.
                         </h1>
 
-                        <div className="space-y-3">
-                            {[
-                                { label: 'State Commissioner', desc: 'State-wide oversight & analytics' },
-                                { label: 'District Programme Officer', desc: 'District-level monitoring' },
-                                { label: 'CDPO', desc: 'Project-level management' },
-                            ].map((item) => (
-                                <div key={item.label} className="bg-zinc-900/50 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                                    <div>
-                                        <p className="text-sm font-medium text-zinc-200">{item.label}</p>
-                                        <p className="text-[10px] text-zinc-500">{item.desc}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 </div>
 
@@ -187,5 +172,17 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="w-8 h-8 bg-white text-black flex items-center justify-center font-bold text-sm rounded animate-pulse">J</div>
+            </div>
+        }>
+            <LoginForm />
+        </Suspense>
     )
 }

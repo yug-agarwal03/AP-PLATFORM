@@ -245,3 +245,91 @@ export async function bulkDeleteUsers(userIds: string[]) {
     revalidatePath('/admin/users')
     return { success: true }
 }
+
+export async function createNewUser(data: any) {
+    const supabase = createAdminClient()
+
+    try {
+        const { data: userData, error: authError } = await supabase.auth.admin.createUser({
+            email: data.email,
+            password: data.password,
+            email_confirm: true,
+            user_metadata: { name: data.name, role: data.role }
+        })
+
+        if (authError) throw authError
+        if (!userData.user) throw new Error("Could not create auth user")
+
+        // Build profile data dynamically to handle older schemas
+        const profileData: any = {
+            id: userData.user.id,
+            name: data.name,
+            email: data.email,
+            phone: data.phone || null,
+            role: data.role,
+            state_id: data.state_id || null,
+            district_id: data.district_id || null,
+            mandal_id: data.mandal_id || null,
+            awc_id: data.awc_id || null,
+            is_active: true
+        };
+
+        // Only add these if they are present in the incoming data
+        // We will try to update them, but we'll catch the "missing column" error specifically
+        if (data.sector_id) profileData.sector_id = data.sector_id;
+        if (data.panchayat_id) profileData.panchayat_id = data.panchayat_id;
+
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert(profileData)
+
+        if (profileError) {
+            // Check if error is due to missing columns (common in early v4 migrations)
+            if (profileError.code === 'PGRST204' || profileError.message?.includes('panchayat_id') || profileError.message?.includes('sector_id')) {
+                console.warn('Schem discrepancy detected. Retrying without sector/panchayat columns...');
+
+                const legacyData = { ...profileData };
+                delete legacyData.sector_id;
+                delete legacyData.panchayat_id;
+
+                const { error: retryError } = await supabase
+                    .from('profiles')
+                    .upsert(legacyData);
+
+                if (retryError) {
+                    await supabase.auth.admin.deleteUser(userData.user.id)
+                    throw retryError;
+                }
+            } else {
+                // Rollback auth user creation if profile fails for other reasons
+                await supabase.auth.admin.deleteUser(userData.user.id)
+                throw profileError
+            }
+        }
+
+        // Audit log
+        await supabase.from('audit_log').insert({
+            user_id: userData.user.id,
+            action: 'user_creation',
+            resource_type: 'user',
+            resource_id: userData.user.id,
+            details: {
+                role: data.role, assignments: {
+                    state: data.state_id,
+                    district: data.district_id,
+                    mandal: data.mandal_id,
+                    sector: data.sector_id,
+                    panchayat: data.panchayat_id,
+                    awc: data.awc_id
+                }
+            },
+            purpose: 'Administrative action'
+        })
+
+        revalidatePath('/admin/users')
+        return { success: true }
+    } catch (error: any) {
+        console.error('Error in createNewUser:', error)
+        return { success: false, error: error.message }
+    }
+}
