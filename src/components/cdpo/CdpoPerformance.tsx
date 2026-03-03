@@ -25,8 +25,14 @@ import {
     ChevronRight
 } from 'lucide-react';
 
-const CdpoPerformance: React.FC = () => {
-    const performances = [
+interface CdpoPerformanceProps {
+    initialPerformances?: any[];
+    initialHighlights?: any[];
+    projectName?: string;
+}
+
+const CdpoPerformance: React.FC<CdpoPerformanceProps> = ({ initialPerformances, initialHighlights, projectName }) => {
+    const performances = initialPerformances || [
         { id: 'AWW-101', name: 'Lakshmi Devi', mandal: 'Kondapur', role: 'Anganwadi Worker', coverage: 94, score: 92, flags: 0, status: 'Top Performer', lastActive: '2m ago' },
         { id: 'AWW-104', name: 'Savitri Bai', mandal: 'Kondapur', role: 'Anganwadi Worker', coverage: 82, score: 85, flags: 2, status: 'Compliant', lastActive: '14m ago' },
         { id: 'AWW-108', name: 'Rani Kumari', mandal: 'Nellore', role: 'Anganwadi Worker', coverage: 48, score: 54, flags: 8, status: 'Under Review', lastActive: '1h ago' },
@@ -34,7 +40,7 @@ const CdpoPerformance: React.FC = () => {
         { id: 'AWW-115', name: 'Anitha S.', mandal: 'Nellore', role: 'Anganwadi Worker', coverage: 91, score: 88, flags: 0, status: 'Top Performer', lastActive: '8m ago' },
     ];
 
-    const highlights = [
+    const highlights = initialHighlights || [
         { label: 'AVG COVERAGE', value: '78%', icon: <TrendingUp size={20} />, color: 'black' },
         { label: 'TOP PERFORMERS', value: '42', icon: <Award size={20} />, color: 'green' },
         { label: 'BELOW TARGET', value: '18', icon: <AlertTriangle size={20} />, color: 'red' },
@@ -48,7 +54,7 @@ const CdpoPerformance: React.FC = () => {
                     <h1 className="text-[32px] font-bold text-black tracking-tighter uppercase">Personnel Hub</h1>
                     <p className="text-[14px] text-[#888888] font-medium flex items-center gap-2">
                         <User size={14} />
-                        Kondapur CDPO Node • Field Compliance Analytics
+                        {projectName || 'Kondapur'} CDPO Node • Field Compliance Analytics
                     </p>
                 </div>
                 <div className="flex bg-white shadow-sm border border-[#E5E5E5] rounded-2xl p-1 shrink-0">
@@ -92,7 +98,7 @@ const CdpoPerformance: React.FC = () => {
                     </div>
                     <div className="relative z-10">
                         <h3 className="text-[16px] font-black uppercase tracking-widest text-black mb-1">Personnel Scoreboard</h3>
-                        <p className="text-[13px] text-[#888] font-medium uppercase tracking-tight">Consolidated AWW/Screener matrix across Kondapur command</p>
+                        <p className="text-[13px] text-[#888] font-medium uppercase tracking-tight">Consolidated AWW/Screener matrix across {projectName || 'Kondapur'} command</p>
                     </div>
                     <div className="flex items-center gap-4 relative z-10">
                         <div className="relative group/search">
@@ -135,7 +141,7 @@ const CdpoPerformance: React.FC = () => {
                                     <td className="px-10 py-8 text-center text-[#555] font-black uppercase tracking-tighter text-[13px]">{perf.mandal}</td>
                                     <td className="px-10 py-8 text-center">
                                         <div className={`inline-flex items-center justify-center w-12 h-12 rounded-2xl border-2 font-black text-[16px] italic shadow-sm transition-all group-hover:scale-110 ${perf.score >= 90 ? 'bg-green-50 text-green-700 border-green-200' :
-                                                perf.score >= 70 ? 'bg-black text-white border-black' : 'bg-red-50 text-red-700 border-red-200'
+                                            perf.score >= 70 ? 'bg-black text-white border-black' : 'bg-red-50 text-red-700 border-red-200'
                                             }`}>
                                             {perf.score}
                                         </div>
@@ -148,14 +154,14 @@ const CdpoPerformance: React.FC = () => {
                                             </div>
                                             <div className="h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
                                                 <div className={`h-full transition-all duration-1000 ${perf.coverage >= 90 ? 'bg-green-500' :
-                                                        perf.coverage >= 70 ? 'bg-black' : 'bg-red-500'
+                                                    perf.coverage >= 70 ? 'bg-black' : 'bg-red-500'
                                                     }`} style={{ width: `${perf.coverage}%` }} />
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-10 py-8 text-center">
                                         <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] border-2 ${perf.status === 'Top Performer' ? 'bg-green-50 text-green-700 border-green-200 shadow-xl shadow-green-100' :
-                                                perf.status === 'Compliant' ? 'bg-black text-white border-black' : 'bg-red-50 text-red-700 border-red-200'
+                                            perf.status === 'Compliant' ? 'bg-black text-white border-black' : 'bg-red-50 text-red-700 border-red-200'
                                             }`}>
                                             {perf.status}
                                         </span>

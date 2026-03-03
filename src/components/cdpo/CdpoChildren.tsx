@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     Activity,
     ArrowUpRight,
@@ -45,17 +45,34 @@ import {
     Cell
 } from 'recharts';
 
-const CdpoChildren: React.FC = () => {
+interface CdpoChildrenProps {
+    initialChildren?: any[];
+    totalCount?: number;
+    projectName?: string;
+}
+
+const CdpoChildren: React.FC<CdpoChildrenProps> = ({ initialChildren, totalCount, projectName }) => {
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('Overview');
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const children = [
+    const allChildren = initialChildren || [
         { id: 'CH-1002', name: 'Priya Sharma', age: '4y 2m', gender: 'Female', mandal: 'Kondapur', awc: 'Rampur-A', risk: 'CRITICAL', lastActivity: '2h ago', healthScore: 42, growth: 'Below Avg' },
         { id: 'CH-1004', name: 'Rahul K.', age: '3y 8m', gender: 'Male', mandal: 'Nellore', awc: 'North-B', risk: 'HIGH', lastActivity: '4h ago', healthScore: 68, growth: 'Standard' },
         { id: 'CH-1005', name: 'Sneha M.', age: '5y 1m', gender: 'Female', mandal: 'Kondapur', awc: 'Cen-2', risk: 'LOW', lastActivity: '1d ago', healthScore: 92, growth: 'Optimal' },
         { id: 'CH-1008', name: 'Arjun V.', age: '4y 11m', gender: 'Male', mandal: 'Mallapur', awc: 'G-Road', risk: 'CRITICAL', lastActivity: '3d ago', healthScore: 38, growth: 'Critical Gaps' },
         { id: 'CH-1012', name: 'Meera G.', age: '2y 11m', gender: 'Female', mandal: 'Kondapur', awc: 'Rampur-A', risk: 'MEDIUM', lastActivity: '6h ago', healthScore: 78, growth: 'Standard' },
     ];
+
+    const children = useMemo(() => {
+        if (!searchTerm) return allChildren;
+        const lowSearch = searchTerm.toLowerCase();
+        return allChildren.filter((c: any) =>
+            c.name.toLowerCase().includes(lowSearch) ||
+            c.id.toLowerCase().includes(lowSearch) ||
+            c.awc.toLowerCase().includes(lowSearch)
+        );
+    }, [allChildren, searchTerm]);
 
     const riskDomains = [
         { name: 'Gross Motor', score: 45, color: '#EF4444' },
@@ -66,7 +83,7 @@ const CdpoChildren: React.FC = () => {
     ];
 
     const renderChildRecord = () => {
-        const child = children.find(c => c.id === selectedChildId) || children[0];
+        const child = children.find((c: any) => c.id === selectedChildId) || children[0];
 
         return (
             <div className="max-w-[1000px] mx-auto pb-32 animate-in fade-in zoom-in-95 duration-500">
@@ -212,7 +229,7 @@ const CdpoChildren: React.FC = () => {
                             <h1 className="text-[32px] font-bold text-black tracking-tighter uppercase">Children Directory</h1>
                             <p className="text-[14px] text-[#888888] font-medium flex items-center gap-2">
                                 <User size={14} />
-                                Kondapur CDPO Node • Unified Regional Census
+                                {projectName || 'Kondapur'} CDPO Node • Unified Regional Census
                             </p>
                         </div>
                         <div className="flex bg-white shadow-sm border border-[#E5E5E5] rounded-2xl p-1 shrink-0">
@@ -235,7 +252,7 @@ const CdpoChildren: React.FC = () => {
                             <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-10">
                                 <div>
                                     <h3 className="text-[16px] font-black uppercase tracking-widest text-black mb-1">Administrative Registry</h3>
-                                    <p className="text-[13px] text-[#888] font-medium uppercase tracking-tight italic">3,890 beneficiaries in current command</p>
+                                    <p className="text-[13px] text-[#888] font-medium uppercase tracking-tight italic">{(totalCount || 3890).toLocaleString()} beneficiaries in current command</p>
                                 </div>
                                 <div className="h-10 w-[1px] bg-black/5 hidden md:block" />
                                 <div className="flex items-center gap-6">
@@ -250,7 +267,13 @@ const CdpoChildren: React.FC = () => {
                             <div className="flex items-center gap-4 relative z-10">
                                 <div className="relative group/search">
                                     <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#BBB] group-focus-within/search:text-black transition-colors" />
-                                    <input type="text" placeholder="Filter census..." className="pl-12 pr-6 h-12 bg-white border-2 border-[#F0F0F0] rounded-2xl text-[13px] w-[260px] focus:border-black outline-none transition-all font-black uppercase tracking-tight shadow-sm" />
+                                    <input
+                                        type="text"
+                                        placeholder="Filter census..."
+                                        className="pl-12 pr-6 h-12 bg-white border-2 border-[#F0F0F0] rounded-2xl text-[13px] w-[260px] focus:border-black outline-none transition-all font-black uppercase tracking-tight shadow-sm"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
                                 </div>
                                 <button className="flex items-center gap-3 text-[11px] font-black uppercase tracking-widest text-black bg-white px-6 py-3 rounded-xl border border-[#EEE] hover:border-black transition-all shadow-sm">
                                     <Filter size={16} /> MATRIX

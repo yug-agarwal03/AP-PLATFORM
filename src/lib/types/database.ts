@@ -5,6 +5,7 @@ export type UserRole =
     | 'district_officer'
     | 'commissioner'
     | 'system_admin'
+    | 'super_admin'
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
 export type FlagPriority = 'low' | 'medium' | 'high' | 'urgent'

@@ -16,7 +16,7 @@ export const ROUTE_ROLE_MAP: Record<string, UserRole[]> = {
     '/commissioner': ['commissioner'],
     '/dpo': ['district_officer'],
     '/cdpo': ['cdpo'],
-    '/admin': ['system_admin'],
+    '/admin': ['system_admin', 'super_admin'],
 }
 
 export function getAllowedRolesForPath(pathname: string): UserRole[] | null {

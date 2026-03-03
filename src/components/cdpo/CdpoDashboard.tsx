@@ -23,15 +23,77 @@ import {
     MANDAL_HEATMAP_DATA,
 } from '@/lib/cdpo/constants';
 
-export default function CdpoDashboard() {
+interface CdpoDashboardProps {
+    initialStats?: {
+        totalChildren: number
+        screenedChildren: number
+        coverage: number
+        openFlags: number
+        pendingReferrals: number
+        delta: {
+            children: string
+            screened: string
+            coverage: string
+            flags: string
+            referrals: string
+        }
+    }
+    initialRiskDistribution?: Array<{
+        name: string
+        value: number
+        color: string
+    }>
+    projectInfo?: {
+        name: string
+        mandalCount: number
+        awcCount: number
+    }
+    initialMandalCoverage?: Array<{
+        name: string
+        count: number
+        coverage: number
+    }>
+}
+
+export default function CdpoDashboard({
+    initialStats,
+    initialRiskDistribution,
+    projectInfo,
+    initialMandalCoverage
+}: CdpoDashboardProps) {
     const [timeFilter, setTimeFilter] = useState('This Month');
 
-    const riskDistribution = useMemo(() => [
-        { name: 'Low', value: 2340, color: RISK_COLORS.LOW, percentage: '60%' },
-        { name: 'Medium', value: 934, color: RISK_COLORS.MEDIUM, percentage: '24%' },
-        { name: 'High', value: 467, color: RISK_COLORS.HIGH, percentage: '12%' },
-        { name: 'Critical', value: 149, color: RISK_COLORS.CRITICAL, percentage: '4%' },
-    ], []);
+    const stats = initialStats || {
+        totalChildren: 6240,
+        screenedChildren: 3890,
+        coverage: 62,
+        openFlags: 48,
+        pendingReferrals: 23,
+        delta: {
+            children: '+120 this month',
+            screened: '+340',
+            coverage: '+4%',
+            flags: '-8',
+            referrals: '+7'
+        }
+    };
+
+    const riskDistribution = useMemo(() => initialRiskDistribution || [
+        { name: 'Low', value: 2340, color: RISK_COLORS.LOW },
+        { name: 'Medium', value: 934, color: RISK_COLORS.MEDIUM },
+        { name: 'High', value: 467, color: RISK_COLORS.HIGH },
+        { name: 'Critical', value: 149, color: RISK_COLORS.CRITICAL },
+    ], [initialRiskDistribution]);
+
+    const mandalCoverage = initialMandalCoverage || MANDAL_HEATMAP_DATA;
+
+    const kpis = [
+        { label: 'TOTAL CHILDREN', value: stats.totalChildren.toLocaleString(), delta: stats.delta.children, isUp: true },
+        { label: 'SCREENED', value: stats.screenedChildren.toLocaleString(), delta: stats.delta.screened, isUp: true },
+        { label: 'COVERAGE', value: `${stats.coverage}%`, delta: stats.delta.coverage, isUp: true },
+        { label: 'OPEN FLAGS', value: stats.openFlags.toString(), delta: stats.delta.flags, isUp: false },
+        { label: 'PENDING REFERRALS', value: stats.pendingReferrals.toString(), delta: stats.delta.referrals, isUp: true, isBadUp: true },
+    ];
 
     const getHeatmapColor = (coverage: number) => {
         if (coverage === 0) return '#FFFFFF';
@@ -50,7 +112,9 @@ export default function CdpoDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-[24px] font-semibold mb-1">Executive Dashboard</h1>
-                    <p className="text-[13px] text-[#888888]">Project: Kondapur CDPO — 8 Mandals, 156 AWCs</p>
+                    <p className="text-[13px] text-[#888888]">
+                        Project: {projectInfo?.name || 'Kondapur'} — {projectInfo?.mandalCount || 8} Mandals, {projectInfo?.awcCount || 156} AWCs
+                    </p>
                 </div>
                 <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-[#E5E5E5] shadow-sm shrink-0">
                     {['This Week', 'This Month', 'Quarter', 'Year'].map((p) => (
@@ -60,7 +124,7 @@ export default function CdpoDashboard() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                {EXECUTIVE_KPIS.map((kpi, idx) => (
+                {kpis.map((kpi, idx) => (
                     <div key={idx} className="bg-white p-5 rounded-[12px] border border-[#E5E5E5] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
                         <div className="flex items-center justify-between mb-4">
                             <span className="text-[11px] font-semibold text-[#888888] uppercase tracking-widest">{kpi.label}</span>
@@ -85,7 +149,7 @@ export default function CdpoDashboard() {
                 <div className="lg:col-span-6 bg-white p-6 rounded-[12px] border border-[#E5E5E5] shadow-sm">
                     <h3 className="text-[14px] font-semibold text-[#888888] uppercase tracking-widest mb-6">SCREENING COVERAGE BY MANDAL</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {MANDAL_HEATMAP_DATA.map((m, idx) => (
+                        {mandalCoverage.map((m, idx) => (
                             <div key={idx} className="aspect-square p-4 rounded-lg flex flex-col justify-between cursor-pointer transition-transform hover:scale-[1.02] border border-[#E5E5E5]" style={{ backgroundColor: getHeatmapColor(m.coverage), color: getHeatmapTextColor(m.coverage) }}>
                                 <span className="text-[11px] uppercase font-bold opacity-80">{m.name}</span>
                                 <div>
@@ -108,7 +172,7 @@ export default function CdpoDashboard() {
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                            <div className="text-[20px] font-bold">3,890</div>
+                            <div className="text-[20px] font-bold">{stats.screenedChildren.toLocaleString()}</div>
                             <div className="text-[10px] text-[#888888] font-bold uppercase">Screened</div>
                         </div>
                     </div>

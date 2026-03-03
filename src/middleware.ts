@@ -34,6 +34,8 @@ export async function middleware(request: NextRequest) {
 
     const protectedPrefixes = ['/admin', '/commissioner', '/dpo', '/cdpo']
     const isProtectedRoute = protectedPrefixes.some(p => request.nextUrl.pathname.startsWith(p))
+    const isRoot = request.nextUrl.pathname === '/'
+    const isAuthPage = request.nextUrl.pathname === '/login'
     const isApiRoute = request.nextUrl.pathname.startsWith('/api/admin')
 
     // Block unauthenticated API access
@@ -41,8 +43,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Redirect unauthenticated users on protected routes to login
-    if (!user && isProtectedRoute) {
+    // Redirect unauthenticated users on protected routes or root to login
+    if (!user && (isProtectedRoute || isRoot)) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         const redirectResponse = NextResponse.redirect(url)
@@ -53,7 +55,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Redirect authenticated users away from login/root to their dashboard
-    if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/')) {
+    if (user && (isAuthPage || isRoot)) {
         const hasError = request.nextUrl.searchParams.has('error')
         if (!hasError) {
             const { data: profile } = await supabase

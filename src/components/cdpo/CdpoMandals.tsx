@@ -10,22 +10,27 @@ import {
     MANDAL_COMPARISON_DATA,
 } from '@/lib/cdpo/constants';
 
-export default function CdpoMandals() {
+interface CdpoMandalsProps {
+    initialMandals?: any[];
+}
+
+export default function CdpoMandals({ initialMandals }: CdpoMandalsProps) {
     const [viewMode, setViewMode] = useState<'Table' | 'Chart'>('Table');
     const [sortBy, setSortBy] = useState<string>('coverage');
 
     const sortedMandals = useMemo(() => {
-        return [...MANDAL_COMPARISON_DATA].sort((a: any, b: any) => {
+        const data = initialMandals || MANDAL_COMPARISON_DATA;
+        return [...data].sort((a: any, b: any) => {
             return b[sortBy] - a[sortBy];
         });
-    }, [sortBy]);
+    }, [sortBy, initialMandals]);
 
     return (
         <div className="animate-in fade-in duration-700">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-[24px] font-semibold mb-1">Mandal Comparison</h1>
-                    <p className="text-[13px] text-[#888888]">8 mandals in project</p>
+                    <p className="text-[13px] text-[#888888]">{sortedMandals.length} mandals in district</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-[#E5E5E5] shadow-sm">

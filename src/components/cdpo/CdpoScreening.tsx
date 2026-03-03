@@ -34,10 +34,21 @@ import {
     PieChart as PieIcon
 } from 'lucide-react';
 
-const CdpoScreening: React.FC = () => {
+interface CdpoScreeningProps {
+    initialData?: {
+        coverageTrend: any[]
+        riskDistribution: any[]
+        ageGroups: any[]
+        kpis: any[]
+        totalScreened: number
+        projectName?: string
+    }
+}
+
+const CdpoScreening: React.FC<CdpoScreeningProps> = ({ initialData }) => {
     const [subView, setSubView] = useState<'Coverage' | 'Risk'>('Risk');
 
-    const coverageTrend = [
+    const coverageTrend = initialData?.coverageTrend || [
         { month: 'Oct', coverage: 42 },
         { month: 'Nov', coverage: 58 },
         { month: 'Dec', coverage: 74 },
@@ -45,25 +56,28 @@ const CdpoScreening: React.FC = () => {
         { month: 'Feb', coverage: 89 },
     ];
 
-    const riskDistribution = [
+    const riskDistribution = initialData?.riskDistribution || [
         { name: 'Low', value: 2340, color: '#000000' },
         { name: 'Medium', value: 934, color: '#444444' },
         { name: 'High', value: 467, color: '#888888' },
         { name: 'Critical', value: 149, color: '#CCCCCC' },
     ];
 
-    const ageGroups = [
+    const ageGroups = initialData?.ageGroups || [
         { group: '0-1y', screened: 450, total: 600 },
         { group: '1-3y', screened: 1200, total: 1500 },
         { group: '3-6y', screened: 2240, total: 2400 },
     ];
 
-    const kpis = [
+    const kpis = initialData?.kpis || [
         { label: 'TOTAL SCREENED', value: '3,890', delta: '+412', isUp: true, color: 'black' },
         { label: 'COVERAGE RATE', value: '82.4%', delta: '+5.2%', isUp: true, color: 'black' },
         { label: 'HIGH RISK (PH-2)', value: '616', delta: '-12', isUp: false, color: 'red-500' },
         { label: 'SYNC LATENCY', value: '1.4h', delta: '-0.2h', isUp: false, color: 'black' },
     ];
+
+    const totalScreened = initialData?.totalScreened || 3890;
+    const projectName = initialData?.projectName || 'Kondapur';
 
     return (
         <div className="space-y-12 animate-in fade-in duration-700 pb-32">
@@ -72,7 +86,7 @@ const CdpoScreening: React.FC = () => {
                     <h1 className="text-[32px] font-bold text-black tracking-tighter uppercase">Screening Matrix</h1>
                     <p className="text-[14px] text-[#888888] font-medium flex items-center gap-2">
                         <Scan size={14} />
-                        Kondapur CDPO Node • Field Coverage Intelligence
+                        {projectName} CDPO Node • Field Coverage Intelligence
                     </p>
                 </div>
                 <div className="flex bg-white shadow-sm border border-[#E5E5E5] rounded-2xl p-1 shrink-0">
@@ -173,7 +187,7 @@ const CdpoScreening: React.FC = () => {
                                     </ResponsiveContainer>
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
                                         <p className="text-[10px] font-black text-[#AAA] uppercase tracking-widest mb-1">Total</p>
-                                        <p className="text-[32px] font-black tracking-tighter leading-none italic">3,890</p>
+                                        <p className="text-[32px] font-black tracking-tighter leading-none italic">{totalScreened.toLocaleString()}</p>
                                     </div>
                                 </div>
                                 <div className="flex-1 space-y-6">
@@ -228,7 +242,7 @@ const CdpoScreening: React.FC = () => {
                                         <div className="w-10 h-10 bg-white/10 rounded-xl border border-white/5 flex items-center justify-center text-white"><ShieldCheck size={20} /></div>
                                         <h3 className="text-[11px] font-black uppercase tracking-widest text-white/40">Regional Directive</h3>
                                     </div>
-                                    <h2 className="text-[28px] font-black tracking-tighter uppercase leading-tight italic">Consolidated Ph-2 Registry — Kondapur Node Active.</h2>
+                                    <h2 className="text-[28px] font-black tracking-tighter uppercase leading-tight italic">Consolidated Ph-2 Registry — {projectName} Node Active.</h2>
                                     <p className="text-[14px] text-white/60 font-medium uppercase tracking-tight">Systematic audit of all high-risk flags must be completed within 12h of trigger sync.</p>
                                 </div>
                                 <div className="flex flex-col md:flex-row items-center gap-4">
