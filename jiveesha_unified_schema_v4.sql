@@ -1882,6 +1882,12 @@ CREATE TRIGGER audit_feature_flags AFTER INSERT OR UPDATE OR DELETE ON feature_f
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- Enable RLS on ALL tables
+ALTER TABLE states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE districts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mandals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sectors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE panchayats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE awcs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE children ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prenatal_history ENABLE ROW LEVEL SECURITY;
@@ -1929,6 +1935,7 @@ ALTER TABLE feature_flags ENABLE ROW LEVEL SECURITY;
 DO $$ DECLARE t TEXT;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
+    'states', 'districts', 'mandals', 'sectors', 'panchayats', 'awcs',
     'profiles', 'children', 'prenatal_history', 'questions',
     'questionnaire_sessions', 'questionnaire_responses',
     'supervisor_questions', 'supervisor_responses',
@@ -1947,6 +1954,14 @@ BEGIN
     EXECUTE format('CREATE POLICY "Super admin full access %1$s" ON %1$s FOR ALL USING (auth_role() IN (''super_admin'', ''system_admin''));', t);
   END LOOP;
 END $$;
+
+-- ─── GEOGRAPHY (All read) ────────────────────────────────────────────────
+CREATE POLICY "All read states" ON states FOR SELECT USING (true);
+CREATE POLICY "All read districts" ON districts FOR SELECT USING (true);
+CREATE POLICY "All read mandals" ON mandals FOR SELECT USING (true);
+CREATE POLICY "All read sectors" ON sectors FOR SELECT USING (true);
+CREATE POLICY "All read panchayats" ON panchayats FOR SELECT USING (true);
+CREATE POLICY "All read awcs" ON awcs FOR SELECT USING (true);
 
 -- ─── PROFILES ────────────────────────────────────────────────────────────
 CREATE POLICY "Users read own profile" ON profiles FOR SELECT USING (id = auth.uid());

@@ -2,45 +2,27 @@
 
 import React, { useState } from 'react';
 import { Scorecard, PerformanceRing, CoverageMiniBar } from './DpoUI';
-import { KPI } from '@/lib/dpo/types';
+import { KPI, DpoWorkforceData } from '@/lib/dpo/types';
 import { Search, Filter, ArrowUpRight, ChevronRight, Activity, Smartphone, CheckCircle2, AlertCircle, Clock, Users, Shield, Target, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-const DpoWorkforce: React.FC = () => {
+export interface DpoWorkforceProps {
+    stats: DpoWorkforceData;
+}
+
+const DpoWorkforce: React.FC<DpoWorkforceProps> = ({ stats }) => {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'AWW' | 'Screeners' | 'CDPOs'>('AWW');
     const [showBelowTargetOnly, setShowBelowTargetOnly] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const kpis: KPI[] = [
-        { label: 'TOTAL AWWS', value: '680', trend: [650, 660, 675, 680], change: '0', isPositive: true },
-        { label: 'ACTIVE (30d)', value: '634', trend: [610, 620, 630, 634], change: '+12', isPositive: true },
-        { label: 'AVG COMPLIANCE', value: '82%', trend: [78, 80, 81, 82], change: '+2%', isPositive: true },
-        { label: 'BELOW TARGET', value: '46', trend: [55, 50, 48, 46], change: '-9', isPositive: true },
-    ];
+    const { kpis, awwPerformanceData: allAww, screenerData, cdpoOfficers, heatmapRows, heatmapWeeks } = stats;
 
-    const awwPerformanceData = [
-        { id: 1, name: 'Saritha P.', cdpo: 'Central', mandal: 'Kondapur', awc: 'Rampur Main', children: 45, questionnaires: 42, coverage: 93, observations: 12, flags: 0, visits: 8, lastActive: '2h ago', score: 94 },
-        { id: 2, name: 'Lakshmi V.', cdpo: 'North', mandal: 'Mandal B', awc: 'Colony Hub', children: 52, questionnaires: 21, coverage: 40, observations: 4, flags: 3, visits: 2, lastActive: '1d ago', score: 38 },
-        { id: 3, name: 'B. Kavitha', cdpo: 'East', mandal: 'Mandal C', awc: 'Market Hub', children: 38, questionnaires: 24, coverage: 63, observations: 7, flags: 1, visits: 4, lastActive: '5h ago', score: 65 },
-        { id: 4, name: 'T. Mary', cdpo: 'South', mandal: 'Mandal A', awc: 'Lakeview', children: 40, questionnaires: 35, coverage: 87, observations: 10, flags: 0, visits: 6, lastActive: '3h ago', score: 82 },
-        { id: 5, name: 'R. Reddy', cdpo: 'North', mandal: 'Mandal B', awc: 'Forest Edge', children: 60, questionnaires: 15, coverage: 25, observations: 2, flags: 5, visits: 1, lastActive: '3d ago', score: 22 },
-    ].sort((a, b) => a.score - b.score);
-
-    const screenerData = [
-        { name: 'Team Alpha', cdpo: 'Central', mandal: 'Kondapur', screenings: 450, quality: 92, referrals: 34, activeCases: 12, lastActive: 'Today' },
-        { name: 'Team Beta', cdpo: 'North', mandal: 'Mandal B', screenings: 180, quality: 64, referrals: 15, activeCases: 28, lastActive: '2d ago' },
-        { name: 'Team Gamma', cdpo: 'East', mandal: 'Mandal C', screenings: 310, quality: 85, referrals: 22, activeCases: 18, lastActive: 'Yesterday' },
-    ];
-
-    const cdpoOfficers = [
-        { name: 'Dr. Anita Rao', cdpo: 'Central', mandals: 12, escalations: 4, reports: 24, lastLogin: '10m ago', status: 'active' },
-        { name: 'K. Someshwar', cdpo: 'North', mandals: 10, escalations: 24, reports: 12, lastLogin: '2d ago', status: 'inactive' },
-        { name: 'P. Lakshmi', cdpo: 'East', mandals: 8, escalations: 8, reports: 18, lastLogin: '5h ago', status: 'recent' },
-    ];
-
-    const heatmapRows = ['North', 'East', 'West', 'Central', 'South'];
-    const heatmapWeeks = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'];
+    const filteredAww = allAww.filter(a => {
+        if (showBelowTargetOnly && a.coverage >= 60) return false;
+        if (searchTerm && !a.name.toLowerCase().includes(searchTerm.toLowerCase()) && !a.awc.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        return true;
+    });
 
     const getHeatmapColor = (cdpo: string, week: string) => {
         if (cdpo === 'North') return 'bg-red-500/80 hover:bg-red-600';
@@ -155,7 +137,7 @@ const DpoWorkforce: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#F0F0F0]">
-                                    {awwPerformanceData.map((aww, idx) => (
+                                    {filteredAww.map((aww, idx) => (
                                         <tr
                                             key={aww.id}
                                             onClick={() => router.push(`/dpo/workforce/aww/${aww.id}`)}

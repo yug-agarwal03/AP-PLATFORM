@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import {
     ArrowUp,
     Bell,
@@ -20,122 +20,38 @@ import {
     Search,
     ArrowUpRight
 } from 'lucide-react';
-import { Escalation, KPI } from '@/lib/dpo/types';
+import { Escalation, KPI, DpoEscalationsData } from '@/lib/dpo/types';
 import { Scorecard } from './DpoUI';
 import { useRouter } from 'next/navigation';
+import { interveneEscalation, recedeToCdpo, escalateToState } from '@/lib/dpo/actions';
 
-const ESCALATIONS_DATA: Escalation[] = [
-    {
-        id: 'ESC-001',
-        priority: 'critical',
-        title: 'Suspected motor delay — unresolved 18 days',
-        daysOpen: 18,
-        childName: 'Arun Kumar',
-        childAge: '3y 2m',
-        childGender: 'M',
-        location: {
-            awc: 'Rampur',
-            mandal: 'Kondapur',
-            cdpo: 'Kondapur'
-        },
-        path: ['AWW', 'Mandal', 'CDPO', 'District'],
-        history: [
-            { event: 'Raised by AWW Lakshmi', date: '1 Feb' },
-            { event: 'Mandal acknowledged', date: '3 Feb' },
-            { event: 'Mandal unresolved', date: '7 Feb' },
-            { event: 'Auto-escalated to CDPO', date: '8 Feb' },
-            { event: 'CDPO unresolved', date: '14 Feb' },
-            { event: 'Auto-escalated to District', date: '15 Feb' },
-        ],
-        notes: 'Attempted referral but facility at capacity. Local PHC staff reported unavailability of pediatricians for specialized screening.'
-    },
-    {
-        id: 'ESC-002',
-        priority: 'high',
-        title: 'Severe malnutrition flag — 12 days open',
-        daysOpen: 12,
-        childName: 'Sita M.',
-        childAge: '4y 1m',
-        childGender: 'F',
-        location: {
-            awc: 'Colony Hub',
-            mandal: 'B-Nagar',
-            cdpo: 'North'
-        },
-        path: ['AWW', 'Mandal', 'CDPO', 'District'],
-        history: [
-            { event: 'Raised by AWW Lakshmi', date: '5 Feb' },
-            { event: 'Mandal acknowledged', date: '7 Feb' },
-            { event: 'CDPO acknowledged', date: '12 Feb' },
-            { event: 'Escalated to District', date: '17 Feb' },
-        ],
-        notes: 'Family refusing treatment due to cultural beliefs. Multiple counseling sessions by AWW failed to achieve consensus.'
-    },
-    {
-        id: 'ESC-003',
-        priority: 'amber',
-        title: 'Questionnaire inconsistencies flagged — 7 days open',
-        daysOpen: 7,
-        childName: 'Rahul R.',
-        childAge: '2y 8m',
-        childGender: 'M',
-        location: {
-            awc: 'Market Hub',
-            mandal: 'Mandal C',
-            cdpo: 'East'
-        },
-        path: ['AWW', 'Mandal', 'CDPO', 'District'],
-        history: [
-            { event: 'Raised by AWW Kavitha', date: '10 Feb' },
-            { event: 'Escalated to District', date: '17 Feb' },
-        ],
-    }
-];
+export interface DpoEscalationsProps {
+    stats: DpoEscalationsData;
+}
 
-const RESOLVED_DATA: Escalation[] = [
-    {
-        id: 'ESC-RES-01',
-        priority: 'low' as any,
-        title: 'Address update verification',
-        daysOpen: 3,
-        childName: 'Priya S.',
-        childAge: '5y 0m',
-        childGender: 'F',
-        location: { awc: 'Main', mandal: 'A', cdpo: 'Central' },
-        path: [],
-        history: [],
-        resolutionOutcome: 'Resolved',
-        resolvedBy: 'Admin A',
-        resolvedDate: '15 Feb'
-    },
-    {
-        id: 'ESC-RES-02',
-        priority: 'high',
-        title: 'Critical vision impairment',
-        daysOpen: 5,
-        childName: 'Amit G.',
-        childAge: '3y 6m',
-        childGender: 'M',
-        location: { awc: 'Rural 02', mandal: 'B', cdpo: 'North' },
-        path: [],
-        history: [],
-        resolutionOutcome: 'Referred',
-        resolvedBy: 'Dr. Anita Rao',
-        resolvedDate: '16 Feb'
-    }
-];
-
-const DpoEscalations: React.FC = () => {
+const DpoEscalations: React.FC<DpoEscalationsProps> = ({ stats }) => {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'Escalated' | 'Progress' | 'Resolved'>('Escalated');
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [isPending, startTransition] = useTransition();
 
-    const kpis: KPI[] = [
-        { label: 'OPEN ESCALATIONS', value: '42', trend: [10, 15, 20, 25, 30, 42], change: '+12', isPositive: false },
-        { label: 'CRITICAL', value: '12', trend: [5, 8, 10, 12], change: '+4', isPositive: false },
-        { label: 'AVG RESOLUTION', value: '8.3d', trend: [10, 9.5, 9, 8.3], change: '-1.2d', isPositive: true },
-        { label: 'RESOLUTION RATE', value: '67%', trend: [60, 62, 65, 67], change: '+5%', isPositive: true },
-    ];
+    const handleAction = (uid: string | undefined, actionName: string) => {
+        if (!uid) return;
+        startTransition(async () => {
+            try {
+                if (actionName === 'recede') await recedeToCdpo(uid);
+                if (actionName === 'intervene') await interveneEscalation(uid);
+                if (actionName === 'state') await escalateToState(uid);
+                router.refresh();
+            } catch (error) {
+                console.error('Action failed:', error);
+            }
+        });
+    };
+
+    const activeList = stats.active;
+    const resolvedList = stats.resolved;
+    const kpis = stats.kpis;
 
     const getPriorityStyles = (priority: string) => {
         switch (priority) {
@@ -231,15 +147,24 @@ const DpoEscalations: React.FC = () => {
                     Bio Registry
                 </button>
                 <div className="flex-1" />
-                <button className="flex items-center gap-2 px-5 py-2.5 border border-[#E5E5E5] rounded-xl text-[11px] font-black uppercase tracking-widest text-black hover:bg-gray-50 transition-all shadow-sm">
+                <button 
+                    disabled={isPending}
+                    onClick={() => handleAction(esc.uid, 'recede')}
+                    className="flex items-center gap-2 px-5 py-2.5 border border-[#E5E5E5] rounded-xl text-[11px] font-black uppercase tracking-widest text-black hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm">
                     <RotateCcw size={16} />
                     <span>Recede to CDPO</span>
                 </button>
-                <button className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-black/10">
+                <button 
+                    disabled={isPending}
+                    onClick={() => handleAction(esc.uid, 'intervene')}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-gray-800 disabled:opacity-50 transition-all shadow-xl shadow-black/10">
                     <Zap size={16} />
                     <span>Intervene</span>
                 </button>
-                <button className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-100">
+                <button 
+                    disabled={isPending}
+                    onClick={() => handleAction(esc.uid, 'state')}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 disabled:opacity-50 transition-all shadow-xl shadow-red-100">
                     <ShieldAlert size={16} />
                     <span>Escalate To State</span>
                 </button>
@@ -292,9 +217,9 @@ const DpoEscalations: React.FC = () => {
 
             <div className="flex gap-10 border-b border-[#F0F0F0] px-2 overflow-x-auto scrollbar-hide">
                 {[
-                    { id: 'Escalated', label: 'Unresolved (42)' },
-                    { id: 'Progress', label: 'Direct Active (18)' },
-                    { id: 'Resolved', label: 'Archived (86)' }
+                    { id: 'Escalated', label: `Unresolved (${activeList.length})` },
+                    { id: 'Progress', label: `Direct Active (${activeList.filter(a => a.priority === 'critical' || a.priority === 'high').length})` },
+                    { id: 'Resolved', label: `Archived (${resolvedList.length})` }
                 ].map(tab => {
                     const isActive = activeTab === tab.id;
                     return (
@@ -315,13 +240,14 @@ const DpoEscalations: React.FC = () => {
                 <div className="lg:col-span-8 space-y-8">
                     {activeTab === 'Escalated' && (
                         <div className="space-y-6 animate-in slide-in-from-left-2 duration-500">
-                            {ESCALATIONS_DATA.map(esc => <EscalationCard key={esc.id} esc={esc} />)}
+                            {activeList.map(esc => <EscalationCard key={esc.id} esc={esc} />)}
+                            {!activeList.length && <div className="p-10 text-center font-bold text-gray-400">No open escalations</div>}
                         </div>
                     )}
 
                     {activeTab === 'Progress' && (
                         <div className="space-y-6 animate-in slide-in-from-left-2 duration-500">
-                            {ESCALATIONS_DATA.slice(0, 2).map(esc => (
+                            {activeList.filter(a => a.priority === 'critical' || a.priority === 'high').map(esc => (
                                 <div key={esc.id} className="bg-white rounded-2xl p-6 shadow-sm border-2 border-dashed border-black/10 relative">
                                     <div className="flex justify-between items-center mb-6 pl-4">
                                         <div className="flex items-center gap-3">
@@ -336,6 +262,7 @@ const DpoEscalations: React.FC = () => {
                                     <EscalationCard esc={esc} />
                                 </div>
                             ))}
+                            {!activeList.filter(a => a.priority === 'critical' || a.priority === 'high').length && <div className="p-10 text-center font-bold text-gray-400">No active sessions in progress</div>}
                         </div>
                     )}
 
@@ -353,7 +280,8 @@ const DpoEscalations: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#F0F0F0]">
-                                    {RESOLVED_DATA.map(esc => (
+                                    {resolvedList.length === 0 && <tr><td colSpan={6} className="text-center p-8 text-gray-400 font-bold">No resolved flags found</td></tr>}
+                                    {resolvedList.map(esc => (
                                         <tr key={esc.id} className="hover:bg-gray-50 transition-all group">
                                             <td className="px-6 py-5 font-mono text-[11px] text-[#BBB]">{esc.id}</td>
                                             <td className="px-6 py-5">

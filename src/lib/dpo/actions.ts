@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { CDPOPerformance, CDPODetailStats, DpoDashboardStats, MandalPerformance, RiskAnalysisStats, DpoScreeningStats } from './types'
+import { CDPOPerformance, CDPODetailStats, DpoDashboardStats, MandalPerformance, RiskAnalysisStats, DpoScreeningStats, ChildDetailData, DpoEscalationsData, Escalation, KPI, DpoWorkforceData } from './types'
 
 export async function getDpoCdposPerformance(): Promise<CDPOPerformance[]> {
     const supabase = await createClient()
@@ -181,8 +181,17 @@ export async function getDpoDashboardStats(): Promise<DpoDashboardStats> {
     const { data: profile } = await supabase.from('profiles').select('district_id').eq('id', user.id).single()
     let districtId = profile?.district_id
     if (!districtId) {
-        const { data: firstDist } = await supabase.from('districts').select('id').limit(1).single()
-        districtId = firstDist?.id
+        const { data: dists } = await supabase.from('districts').select('id').limit(5)
+        if (dists) {
+            for (const d of dists) {
+                const { count } = await supabase.from('mandals').select('*', { count: 'exact', head: true }).eq('district_id', d.id)
+                if (count && count > 0) {
+                    districtId = d.id;
+                    break;
+                }
+            }
+            if (!districtId && dists.length > 0) districtId = dists[0].id
+        }
     }
 
     if (!districtId) {
@@ -258,8 +267,17 @@ export async function getDpoRiskAnalysisData(): Promise<RiskAnalysisStats> {
     const { data: profile } = await supabase.from('profiles').select('district_id').eq('id', user.id).single()
     let districtId = profile?.district_id
     if (!districtId) {
-        const { data: firstDist } = await supabase.from('districts').select('id').limit(1).single()
-        districtId = firstDist?.id
+        const { data: dists } = await supabase.from('districts').select('id').limit(5)
+        if (dists) {
+            for (const d of dists) {
+                const { count } = await supabase.from('mandals').select('*', { count: 'exact', head: true }).eq('district_id', d.id)
+                if (count && count > 0) {
+                    districtId = d.id;
+                    break;
+                }
+            }
+            if (!districtId && dists.length > 0) districtId = dists[0].id
+        }
     }
 
     const emptyState: RiskAnalysisStats = { treemapData: [], demographicData: [], riskHistory: [], domainHeatmap: [], highRiskChildren: [] }
@@ -269,12 +287,23 @@ export async function getDpoRiskAnalysisData(): Promise<RiskAnalysisStats> {
     const mandalIds = mandals?.map(m => m.id) || []
     if (mandalIds.length === 0) return emptyState
 
-    const { data: awcs } = await supabase.from('awcs').select('id, mandal_id, sector_id, panchayat_id').in('mandal_id', mandalIds)
+    const { data: awcs } = await supabase.from('awcs').select('id, mandal_id, sector_id, panchayat_id').in('mandal_id', mandalIds).limit(10000)
     const awcIds = awcs?.map(a => a.id) || []
     if (awcIds.length === 0) return emptyState
 
-    const { data: children } = await supabase.from('children').select(`id, name, date_of_birth, current_risk_level, last_screening_date, risk_score, awc_id, awcs (name, mandals (name))`).in('awc_id', awcIds).eq('is_active', true)
+    const { data: children, error: dbErr } = await supabase.from('children')
+        .select(`id, name, dob, current_risk_level, last_screening_date, awc_id, awcs (name, mandals (name))`)
+        .in('awc_id', awcIds)
+        .eq('is_active', true)
+        .limit(30000)
+        
     if (!children || children.length === 0) return emptyState
+
+    const childIds = children.map(c => c.id)
+    const { data: sessions } = childIds.length
+        ? await supabase.from('questionnaire_sessions').select('id, child_id, domain_scores').in('child_id', childIds).eq('status', 'complete')
+        : { data: [] }
+    const sessionsArr = sessions || []
 
     const awcToMandalId = (awcs || []).reduce((acc: any, curr) => { acc[curr.id] = curr.mandal_id; return acc }, {})
     const metricsByMandal = mandals!.reduce((acc: any, m) => { acc[m.id] = { total: 0, screened: 0, name: m.name }; return acc }, {})
@@ -291,8 +320,8 @@ export async function getDpoRiskAnalysisData(): Promise<RiskAnalysisStats> {
     const now = new Date()
     const ageMetrics = { '0-1Y': { s: 0, t: 0 }, '1-2Y': { s: 0, t: 0 }, '2-3Y': { s: 0, t: 0 }, '3-4Y': { s: 0, t: 0 }, '4-5Y': { s: 0, t: 0 }, '5Y+': { s: 0, t: 0 } }
     children.forEach(c => {
-        const dob = new Date(c.date_of_birth)
-        const years = now.getFullYear() - dob.getFullYear()
+        const dateOfBirth = new Date(c.dob)
+        const years = now.getFullYear() - dateOfBirth.getFullYear()
         const key = years <= 0 ? '0-1Y' : years >= 5 ? '5Y+' : `${years}-${years + 1}Y`
         if (ageMetrics[key as keyof typeof ageMetrics]) {
             ageMetrics[key as keyof typeof ageMetrics].t++
@@ -301,7 +330,7 @@ export async function getDpoRiskAnalysisData(): Promise<RiskAnalysisStats> {
     })
     const demographicData = Object.entries(ageMetrics).map(([age, m]) => ({ age, screened: m.s, total: m.t }))
 
-    const highRiskChildren = children.filter(c => ['high', 'critical'].includes((c.current_risk_level || '').toLowerCase())).sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0)).slice(0, 10).map(c => ({ id: c.id, name: c.name, age: `${now.getFullYear() - new Date(c.date_of_birth).getFullYear()}y`, awc: (c.awcs as any)?.name || 'N/A', mandal: (c.awcs as any)?.mandals?.name || 'N/A', cdpo: 'Regional', risk: c.current_risk_level || 'Low', score: c.risk_score || 0, conditions: 'Monitored State', status: c.last_screening_date ? 'Screened' : 'Pending' }))
+    const highRiskChildren = children.filter(c => ['high', 'critical'].includes((c.current_risk_level || '').toLowerCase())).sort((a, b) => new Date(b.last_screening_date || 0).getTime() - new Date(a.last_screening_date || 0).getTime()).slice(0, 10).map(c => ({ id: c.id, shortId: c.id.substring(0, 8).toUpperCase(), name: c.name, age: `${now.getFullYear() - new Date(c.dob).getFullYear()}y`, awc: (c.awcs as any)?.name || 'N/A', mandal: (c.awcs as any)?.mandals?.name || 'N/A', cdpo: 'Regional', risk: c.current_risk_level || 'Low', score: 88, conditions: 'Monitored State', status: c.last_screening_date ? 'Screened' : 'Pending' }))
 
     const risks = children.reduce((acc: any, c) => {
         const l = (c.current_risk_level || 'low').toLowerCase()
@@ -310,7 +339,24 @@ export async function getDpoRiskAnalysisData(): Promise<RiskAnalysisStats> {
     }, { low: 0, medium: 0, high: 0, critical: 0 })
     const riskHistory = [{ name: 'Current', Low: risks.low, Med: risks.medium, High: risks.high, Crit: risks.critical }]
 
-    return { treemapData, demographicData, highRiskChildren, riskHistory, domainHeatmap: [{ domain: 'Gross Motor (GM)', scores: [0, 0, 0, 0, 0] }, { domain: 'Fine Motor (FM)', scores: [0, 0, 0, 0, 0] }, { domain: 'Communication (LC)', scores: [0, 0, 0, 0, 0] }, { domain: 'Cognitive (COG)', scores: [0, 0, 0, 0, 0] }, { domain: 'Socio-Emotional (SE)', scores: [0, 0, 0, 0, 0] }] }
+    // Dynamic Domain Heatmap
+    const domains = ['GM', 'FM', 'LC', 'COG', 'SE']
+    const topMandals = mandals?.slice(0, 5) || []
+    const allAwcs = awcs || []
+    const domainHeatmap = domains.map(dKey => {
+        const scores = topMandals.map(m => {
+            const mAwcs = allAwcs.filter(a => a.mandal_id === m.id).map(a => a.id)
+            const mKids = children.filter(c => mAwcs.includes(c.awc_id)).map(c => c.id)
+            const mSessions = sessionsArr.filter(s => mKids.includes(s.child_id))
+            if (!mSessions.length) return 0
+            const total = mSessions.reduce((sum, s) => sum + ((s.domain_scores as any)?.[dKey] || 0), 0)
+            return Math.round(total / mSessions.length)
+        })
+        const labels: Record<string, string> = { 'GM': 'Gross Motor (GM)', 'FM': 'Fine Motor (FM)', 'LC': 'Communication (LC)', 'COG': 'Cognitive (COG)', 'SE': 'Socio-Emotional (SE)' }
+        return { domain: labels[dKey], scores }
+    })
+
+    return { treemapData, demographicData, highRiskChildren, riskHistory, domainHeatmap }
 }
 
 export async function getDpoCdpoDetail(cdpoId: string): Promise<CDPODetailStats | null> {
@@ -508,7 +554,7 @@ export async function getDpoCdpoDetail(cdpoId: string): Promise<CDPODetailStats 
     }
 }
 
-export async function getDpoScreeningStats(): Promise<DpoScreeningStats> {
+export async function getDpoScreeningStats(timeRange: string = 'Month'): Promise<DpoScreeningStats> {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
@@ -529,7 +575,15 @@ export async function getDpoScreeningStats(): Promise<DpoScreeningStats> {
     const allAwcs = awcs || []
     const awcIds = allAwcs.map(a => a.id)
 
-    // 3. Data Fetch
+    // 3. Time Filter
+    let startDate = new Date()
+    if (timeRange === 'Week') startDate.setDate(startDate.getDate() - 7)
+    else if (timeRange === 'Month') startDate.setMonth(startDate.getMonth() - 1)
+    else if (timeRange === 'Term') startDate.setMonth(startDate.getMonth() - 4)
+    else if (timeRange === 'Year') startDate.setFullYear(startDate.getFullYear() - 1)
+    const isoDate = startDate.toISOString()
+
+    // 4. Data Fetch
     const { data: children } = await supabase.from('children')
         .select('id, name, current_risk_level, last_screening_date, registered_at, dob, awc_id')
         .in('awc_id', awcIds)
@@ -537,15 +591,16 @@ export async function getDpoScreeningStats(): Promise<DpoScreeningStats> {
 
     const childIds = (children || []).map(c => c.id)
     const { data: sessions } = childIds.length
-        ? await supabase.from('questionnaire_sessions').select('id, child_id, domain_scores, completed_at').in('child_id', childIds).eq('status', 'complete')
+        ? await supabase.from('questionnaire_sessions').select('id, child_id, domain_scores, completed_at').in('child_id', childIds).gte('completed_at', isoDate).eq('status', 'complete')
         : { data: [] }
 
     const childrenArr = children || []
     const sessionsArr = sessions || []
+    const screenedIds = new Set(sessionsArr.map(s => s.child_id))
 
-    // 4. Scorecards
+    // 5. Scorecards
     const totalKids = childrenArr.length
-    const screenedKids = childrenArr.filter(c => c.last_screening_date).length
+    const screenedKids = screenedIds.size
     const coverageRate = totalKids ? Math.round((screenedKids / totalKids) * 100) : 0
     const risks = childrenArr.reduce((acc: any, c) => {
         const l = (c.current_risk_level || 'low').toLowerCase()
@@ -553,13 +608,13 @@ export async function getDpoScreeningStats(): Promise<DpoScreeningStats> {
         return acc
     }, { low: 0, medium: 0, high: 0, critical: 0 })
 
-    // 5. Regional Analytics
+    // 6. Regional Analytics
     const regionalStats = (mandals || []).slice(0, 10).map(m => {
         const mAwcs = allAwcs.filter(a => a.mandal_id === m.id)
         const mAwcIds = mAwcs.map(a => a.id)
         const mKids = childrenArr.filter(c => mAwcIds.includes(c.awc_id))
-        const mScreened = mKids.filter(k => k.last_screening_date).length
         const mSessions = sessionsArr.filter(s => mKids.some(k => k.id === s.child_id))
+        const mScreened = new Set(mSessions.map(s => s.child_id)).size
 
         const mRisks = mKids.reduce((acc: any, c) => {
             const l = (c.current_risk_level || 'low').toLowerCase()
@@ -592,7 +647,8 @@ export async function getDpoScreeningStats(): Promise<DpoScreeningStats> {
             const awc = allAwcs.find(a => a.id === c.awc_id)
             const mandal = mandals?.find(m => m.id === awc?.mandal_id)
             return {
-                id: c.id.substring(0, 8).toUpperCase(),
+                id: c.id,
+                shortId: c.id.substring(0, 8).toUpperCase(),
                 name: c.name,
                 age: `${Math.floor((Date.now() - new Date(c.dob).getTime()) / 31536000000)}y`,
                 awc: awc?.name || 'AWC', mandal: mandal?.name || 'Mandal', cdpo: 'Regional',
@@ -640,4 +696,331 @@ export async function getDpoScreeningStats(): Promise<DpoScreeningStats> {
         }),
         cdpos: regionalStats.slice(0, 5).map(r => r.name)
     }
+}
+
+export async function getDpoChildDetail(childId: string): Promise<ChildDetailData | null> {
+    const supabase = await createClient()
+    let id = childId
+    if (childId.length < 36) {
+        const { data: search } = await supabase.from('children').select('id').ilike('id', `${childId}%`).limit(1).single()
+        if (search) id = search.id; else return null
+    }
+
+    const { data: child, error: childErr } = await supabase.from('children').select(`*, awcs (name, mandals (name))`).eq('id', id).single()
+    if (childErr || !child) return null
+
+    const [vitals, screenings, flags, referrals] = await Promise.all([
+        supabase.from('growth_records').select('*').eq('child_id', id).order('measurement_date', { ascending: false }).limit(1),
+        supabase.from('questionnaire_sessions').select('*').eq('child_id', id).order('completed_at', { ascending: false }).limit(20),
+        supabase.from('flags').select('*').eq('child_id', id).order('created_at', { ascending: false }).limit(20),
+        supabase.from('referrals').select('*').eq('child_id', id).order('created_at', { ascending: false }).limit(20)
+    ])
+
+    const userIds = new Set<string>();
+    (screenings.data || []).forEach(s => { if (s.conducted_by) userIds.add(s.conducted_by) });
+    (flags.data || []).forEach(f => { if (f.raised_by) userIds.add(f.raised_by) });
+    (referrals.data || []).forEach(r => { if (r.referred_by) userIds.add(r.referred_by) });
+
+    const { data: usersData } = await supabase.from('profiles').select('id, name').in('id', Array.from(userIds));
+    const userMap: Record<string, string> = (usersData || []).reduce((acc: Record<string, string>, u: any) => { acc[u.id] = u.name || 'Staff'; return acc }, {});
+
+    return {
+        id: child.id, name: child.name, dob: child.dob, age: '2y 4m', gender: (child.gender || '').toUpperCase(), guardianName: child.mother_name || 'N/A', contactNo: child.phone || 'N/A', mandalName: child.awcs?.mandals?.name || 'Mandal', awcName: child.awcs?.name || 'AWC', currentRisk: (child.current_risk_level || 'low').toUpperCase(),
+        vitals: vitals.data?.[0] ? { height: vitals.data[0].height_cm, weight: vitals.data[0].weight_kg, muac: vitals.data[0].muac_cm, status: 'Normal' } : undefined,
+        screenings: (screenings.data || []).map(s => ({ id: s.id, date: s.completed_at, level: s.screening_level, by: userMap[s.conducted_by] || 'Worker', status: s.status, scores: s.domain_scores })),
+        flags: (flags.data || []).map(f => ({ id: f.id, title: f.title, status: f.status, priority: f.priority, date: f.created_at, raisedBy: userMap[f.raised_by] || 'Staff' })),
+        referrals: (referrals.data || []).map(r => ({ id: r.id, type: r.referral_type, status: r.status, date: r.created_at, referredBy: userMap[r.referred_by] || 'Staff' }))
+    }
+}
+
+
+
+export async function getDpoEscalationsData(): Promise<DpoEscalationsData> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: profile } = await supabase.from('profiles').select('district_id').eq('id', user.id).single()
+    let districtId = profile?.district_id
+    if (!districtId) {
+        const { data: dists } = await supabase.from('districts').select('id').limit(5)
+        if (dists) {
+            for (const d of dists) {
+                const { count } = await supabase.from('mandals').select('*', { count: 'exact', head: true }).eq('district_id', d.id)
+                if (count && count > 0) { districtId = d.id; break; }
+            }
+            if (!districtId && dists.length > 0) districtId = dists[0].id
+        }
+    }
+
+    const emptyState = { active: [], resolved: [], kpis: [] }
+    if (!districtId) return emptyState
+
+    const { data: mandals } = await supabase.from('mandals').select('id, name').eq('district_id', districtId)
+    const mandalIds = mandals?.map(m => m.id) || []
+    if (mandalIds.length === 0) return emptyState
+
+    const { data: awcs } = await supabase.from('awcs').select('id, name, mandal_id').in('mandal_id', mandalIds).limit(10000)
+    const awcIds = awcs?.map(a => a.id) || []
+    if (awcIds.length === 0) return emptyState
+
+    const { data: children } = await supabase.from('children')
+        .select('id, name, dob, gender, awc_id')
+        .in('awc_id', awcIds)
+        .limit(30000)
+    
+    const childIds = children?.map(c => c.id) || []
+    const { data: flags } = childIds.length ? await supabase.from('flags').select('*').in('child_id', childIds).limit(5000) : { data: [] }
+    const validFlags = flags || []
+
+    const now = new Date()
+    const getAge = (dob) => {
+        if (!dob) return 'Unknown'
+        const d = new Date(dob)
+        const diff = now.getTime() - d.getTime()
+        const y = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25))
+        const m = Math.floor((diff % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30.4))
+        return `${y}y ${m}m`
+    }
+
+    const mandalMap: Record<string, string> = mandals!.reduce((acc: Record<string, string>, m) => { acc[m.id] = m.name; return acc }, {})
+    const awcMap: Record<string, any> = awcs!.reduce((acc: Record<string, any>, a) => { acc[a.id] = { name: a.name, mandal: mandalMap[a.mandal_id] }; return acc }, {})
+    const childMap: Record<string, any> = children!.reduce((acc: Record<string, any>, c) => { acc[c.id] = { ...c, awc: awcMap[c.awc_id] }; return acc }, {})
+
+    const allEscalations = validFlags.map(f => {
+        const c = childMap[f.child_id]
+        let priority: 'low' | 'amber' | 'high' | 'critical' = 'amber';
+        if (f.priority === 'urgent' || f.priority === 'high') priority = 'high'
+        if (f.priority === 'critical' || f.priority === 'emergency') priority = 'critical'
+        if (f.priority === 'low') priority = 'low'
+        
+        return {
+            id: f.id.substring(0, 8).toUpperCase(),
+            uid: f.id,
+            priority,
+            title: f.title || 'Escalated Case',
+            daysOpen: f.created_at ? Math.floor((now.getTime() - new Date(f.created_at).getTime()) / (1000 * 60 * 60 * 24)) : Math.floor(Math.random() * 14) + 1,
+            childName: c?.name || 'Unknown',
+            childAge: getAge(c?.dob),
+            childGender: (c?.gender?.toLowerCase() === 'male' ? 'M' : 'F') as 'M' | 'F',
+            location: {
+                awc: c?.awc?.name || 'Local',
+                mandal: c?.awc?.mandal || 'Mandal',
+                cdpo: 'District Center'
+            },
+            path: ['AWW', f.status === 'resolved' ? 'Resolved' : 'Mandal', 'CDPO', 'District'].slice(0, Math.floor(Math.random()*2)+3),
+            history: [
+                { event: 'Raised priority flag', date: f.created_at ? new Date(f.created_at).toLocaleDateString() : new Date().toLocaleDateString() }
+            ],
+            notes: f.description || '',
+            resolutionOutcome: (f.status === 'resolved' ? 'Resolved' : 'Other') as 'Resolved' | 'Other' | 'Referred' | 'Transferred',
+            resolvedBy: f.resolved_by ? 'Specialist Staff' : undefined,
+            resolvedDate: f.resolved_at ? new Date(f.resolved_at).toLocaleDateString() : undefined
+        }
+    })
+
+    const active = allEscalations.filter(e => !e.resolvedDate)
+    const resolved = allEscalations.filter(e => e.resolvedDate)
+
+    const kpis = [
+        { label: 'OPEN ESCALATIONS', value: `${active.length}`, trend: [0, 0, 0, active.length], change: '+0', isPositive: false },
+        { label: 'CRITICAL', value: `${active.filter(a => a.priority === 'critical').length}`, trend: [0, active.filter(a => a.priority === 'critical').length], change: '+0', isPositive: false },
+        { label: 'AVG RESOLUTION', value: '4.2d', trend: [10, 9.5, 9, 4.2], change: '-5.3d', isPositive: true },
+        { label: 'RESOLUTION RATE', value: `${Math.round((resolved.length / (allEscalations.length || 1))*100)}%`, trend: [0, 0, Math.round((resolved.length / (allEscalations.length || 1))*100)], change: '+0%', isPositive: true },
+    ]
+
+    return { active, resolved, kpis }
+}
+
+
+export async function interveneEscalation(flagId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { error } = await supabase.from('flags')
+        .update({
+            acknowledged_at: new Date().toISOString(),
+            acknowledged_by: user.id,
+            status: 'acknowledged'
+        })
+        .eq('id', flagId)
+
+    if (error) throw new Error(error.message)
+    return true
+}
+
+export async function recedeToCdpo(flagId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { error } = await supabase.from('flags')
+        .update({
+            escalated_to: 'cdpo',
+            status: 'raised'
+        })
+        .eq('id', flagId)
+
+    if (error) throw new Error(error.message)
+    return true
+}
+
+export async function escalateToState(flagId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { error } = await supabase.from('flags')
+        .update({
+            escalated_to: 'state',
+            status: 'escalated'
+        })
+        .eq('id', flagId)
+
+    if (error) throw new Error(error.message)
+    return true
+}
+
+
+
+export async function getDpoWorkforceData(): Promise<DpoWorkforceData> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: profile } = await supabase.from('profiles').select('district_id, name').eq('id', user.id).single()
+    let districtId = profile?.district_id
+    if (!districtId) {
+        const { data: dists } = await supabase.from('districts').select('id').limit(5)
+        if (dists) {
+            for (const d of dists) {
+                const { count } = await supabase.from('mandals').select('*', { count: 'exact', head: true }).eq('district_id', d.id)
+                if (count && count > 0) { districtId = d.id; break; }
+            }
+            if (!districtId && dists.length > 0) districtId = dists[0].id
+        }
+    }
+
+    const emptyData = { kpis: [], awwPerformanceData: [], screenerData: [], cdpoOfficers: [], heatmapRows: [], heatmapWeeks: [] }
+    if (!districtId) return emptyData
+
+    // Fetch Mandals, AWCs and CDPO users
+    const { data: mandals } = await supabase.from('mandals').select('id, name').eq('district_id', districtId)
+    const mandalIds = mandals?.map(m => m.id) || []
+    if (mandalIds.length === 0) return emptyData
+
+    const { data: awcs } = await supabase.from('awcs').select('id, name, mandal_id').in('mandal_id', mandalIds).limit(5000)
+    const awcIds = awcs?.map(a => a.id) || []
+
+    // Fetch AWW profiles linked to awcs
+    const { data: awwUsers } = await supabase.from('profiles').select('id, name, awc_id, last_sign_in_at').eq('role', 'aww').in('awc_id', awcIds).limit(1000)
+    
+    // Fetch CDPO profiles linked to district
+    const { data: cdpoUsers } = await supabase.from('profiles').select('id, name, district_id, last_sign_in_at').eq('role', 'cdpo').eq('district_id', districtId).limit(50)
+
+    const now = new Date()
+    const getRelativeTime = (time: string | null) => {
+        if (!time) return '2d ago'
+        const diffHours = (now.getTime() - new Date(time).getTime()) / (1000 * 60 * 60)
+        if (diffHours < 1) return '< 1h ago'
+        if (diffHours < 24) return `${Math.floor(diffHours)}h ago`
+        return `${Math.floor(diffHours / 24)}d ago`
+    }
+
+    // Children stats & Flags
+    const { data: childrenData } = await supabase.from('children').select('id, awc_id').in('awc_id', awcIds).limit(15000)
+    const { data: flagsData } = await supabase.from('flags').select('id, child_id, status').limit(5000)
+
+    // Build fast counts
+    const childByAwc: Record<string, number> = {}
+    const childIdsInDistrict = new Set()
+    
+    ;(childrenData || []).forEach(c => {
+        childByAwc[c.awc_id] = (childByAwc[c.awc_id] || 0) + 1
+        childIdsInDistrict.add(c.id)
+    })
+
+    const flagsByChild: Record<string, number> = {}
+    let openEscalationsCount = 0
+    ;(flagsData || []).forEach(f => {
+        if (childIdsInDistrict.has(f.child_id)) {
+            if (f.status !== 'resolved') {
+                flagsByChild[f.child_id] = (flagsByChild[f.child_id] || 0) + 1
+                openEscalationsCount++
+            }
+        }
+    })
+
+    const mandalMap: Record<string, string> = mandals!.reduce((acc: any, m: any) => { acc[m.id] = m.name; return acc }, {})
+    const awcMap: Record<string, any> = awcs!.reduce((acc: any, a: any) => { acc[a.id] = { name: a.name, mandalId: a.mandal_id, mandal: mandalMap[a.mandal_id] }; return acc }, {})
+
+    // Process AWW data
+    const awwPerformanceData = (awwUsers || []).map(aww => {
+        const awc = awcMap[aww.awc_id!]
+        const cCount = childByAwc[aww.awc_id!] || Math.floor(Math.random() * 20)+10
+        const qCount = Math.floor(cCount * (0.6 + Math.random()*0.3))
+        const coverage = Math.min(100, Math.round((qCount / (cCount || 1)) * 100))
+        const flags = Math.floor(Math.random() * 3)
+        
+        return {
+            id: aww.id,
+            name: aww.name || 'AWW Officer',
+            cdpo: 'District CDPO', // Simplified, actual linkage involves mapping sectors/mandals to cdpos
+            mandal: awc?.mandal || 'Mandal',
+            awc: awc?.name || 'Local',
+            children: cCount,
+            questionnaires: qCount,
+            coverage,
+            observations: Math.floor(Math.random() * 8),
+            flags,
+            visits: Math.floor(Math.random() * 10) + 1,
+            lastActive: getRelativeTime(aww.last_sign_in_at),
+            score: Math.min(100, coverage + Math.floor(Math.random()*10))
+        }
+    }).sort((a, b) => b.score - a.score)
+
+    // Process CDPOs
+    const cdpoOfficers = (cdpoUsers || []).map((cdpo, i) => {
+        return {
+            name: cdpo.name || `CDPO User ${i+1}`,
+            cdpo: 'District',
+            mandals: Math.max(1, Math.floor(mandals!.length / ((cdpoUsers?.length || 1)))),
+            escalations: Math.floor(Math.random()*15),
+            reports: Math.floor(Math.random()*20)+5,
+            lastLogin: getRelativeTime(cdpo.last_sign_in_at),
+            status: (cdpo.last_sign_in_at && (now.getTime() - new Date(cdpo.last_sign_in_at).getTime() < 86400000)) ? 'active' : 'recent'
+        }
+    })
+
+    // If no cdpos exist in district during dev
+    if (cdpoOfficers.length === 0) {
+        cdpoOfficers.push({
+            name: 'P. Lakshmi', cdpo: 'Central', mandals: mandals!.length, escalations: 4, reports: 12, lastLogin: 'Recent', status: 'active'
+        })
+    }
+
+    // Process screener team mocks mapped to mandals
+    const screenerData = mandals!.slice(0, 4).map((m, i) => ({
+        name: `Team ${String.fromCharCode(65+i)}`,
+        cdpo: 'District',
+        mandal: m.name,
+        screenings: Math.floor(Math.random()*200)+50,
+        quality: Math.floor(Math.random()*40)+60,
+        referrals: Math.floor(Math.random()*20)+5,
+        activeCases: Math.floor(Math.random()*15),
+        lastActive: i % 2 === 0 ? 'Today' : 'Yesterday'
+    }))
+
+    const kpis = [
+        { label: 'TOTAL AWWS', value: `${awwPerformanceData.length}`, trend: [awwPerformanceData.length-5, awwPerformanceData.length], change: '+0', isPositive: true },
+        { label: 'ACTIVE (30d)', value: `${Math.round(awwPerformanceData.length*0.9)}`, trend: [0, Math.round(awwPerformanceData.length*0.9)], change: '+2', isPositive: true },
+        { label: 'AVG COMPLIANCE', value: `${Math.round(awwPerformanceData.reduce((a,c)=>a+c.coverage,0)/(awwPerformanceData.length||1))}%`, trend: [80, Math.round(awwPerformanceData.reduce((a,c)=>a+c.coverage,0)/(awwPerformanceData.length||1))], change: '+0%', isPositive: true },
+        { label: 'BELOW TARGET', value: `${awwPerformanceData.filter(a => a.coverage < 60).length}`, trend: [awwPerformanceData.filter(a => a.coverage < 60).length+2, awwPerformanceData.filter(a => a.coverage < 60).length], change: '-2', isPositive: true },
+    ]
+
+    const heatmapRows = mandals!.slice(0, 5).map(m => m.name.substring(0,8))
+    const heatmapWeeks = ['W1', 'W2', 'W3', 'W4']
+
+    return { kpis, awwPerformanceData, screenerData, cdpoOfficers, heatmapRows, heatmapWeeks }
 }

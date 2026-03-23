@@ -7,16 +7,25 @@ import {
 import { Scorecard } from './DpoUI';
 import { DpoScreeningStats, KPI } from '@/lib/dpo/types';
 import { ChevronRight, Search, ArrowUpRight, TrendingUp, Filter, Calendar } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 interface DpoScreeningProps {
     stats: DpoScreeningStats;
+    initialRange?: string;
 }
 
-const DpoScreening: React.FC<DpoScreeningProps> = ({ stats }) => {
+const DpoScreening: React.FC<DpoScreeningProps> = ({ stats, initialRange = 'Month' }) => {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<'Coverage' | 'Risk' | 'Trends'>('Coverage');
     const [trendType, setTrendType] = useState<'Coverage' | 'Risk' | 'Volume'>('Coverage');
+
+    const handleRangeChange = (range: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('range', range);
+        router.push(`${pathname}?${params.toString()}`);
+    };
 
     const domainMap: Record<string, string> = {
         'GM': 'GM (Gross Motor)',
@@ -51,7 +60,8 @@ const DpoScreening: React.FC<DpoScreeningProps> = ({ stats }) => {
                         {['Week', 'Month', 'Term', 'Year'].map((pill) => (
                             <button
                                 key={pill}
-                                className={`px-5 py-1.5 text-[11px] font-bold uppercase rounded-lg transition-all ${pill === 'Month' ? 'bg-black text-white shadow-lg shadow-black/10' : 'text-[#888] hover:text-black hover:bg-gray-50'}`}
+                                onClick={() => handleRangeChange(pill)}
+                                className={`px-5 py-1.5 text-[11px] font-bold uppercase rounded-lg transition-all ${pill === initialRange ? 'bg-black text-white shadow-lg shadow-black/10' : 'text-[#888] hover:text-black hover:bg-gray-50'}`}
                             >
                                 {pill}
                             </button>
@@ -298,7 +308,7 @@ const DpoScreening: React.FC<DpoScreeningProps> = ({ stats }) => {
                                                     <span className="font-bold text-black text-[14px]">{c.name}</span>
                                                     <ArrowUpRight size={14} className="text-black opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
-                                                <p className="text-[10px] font-bold text-[#888] uppercase tracking-tighter">{c.age} • {c.id}</p>
+                                                <p className="text-[10px] font-bold text-[#888] uppercase tracking-tighter">{c.age} • {c.shortId}</p>
                                             </td>
                                             <td className="px-8 py-5">
                                                 <div className="flex flex-col">

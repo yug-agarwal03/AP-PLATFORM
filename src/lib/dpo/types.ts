@@ -88,6 +88,7 @@ export interface RiskAnalysisStats {
 
 export interface Escalation {
     id: string;
+    uid?: string;
     priority: 'low' | 'amber' | 'high' | 'critical';
     title: string;
     daysOpen: number;
@@ -110,6 +111,12 @@ export interface Escalation {
     resolutionOutcome?: 'Resolved' | 'Referred' | 'Transferred' | 'Other';
     resolvedBy?: string;
     resolvedDate?: string;
+}
+
+export interface DpoEscalationsData {
+    active: Escalation[];
+    resolved: Escalation[];
+    kpis: KPI[];
 }
 
 export enum DpoTab {
@@ -190,4 +197,14 @@ export interface DpoScreeningStats {
     }[];
     multiLineData: any[]; // CDPO-wise performance trends
     cdpos: string[];
+}
+
+
+export interface DpoWorkforceData {
+    kpis: KPI[];
+    awwPerformanceData: { id: string; name: string; cdpo: string; mandal: string; awc: string; children: number; questionnaires: number; coverage: number; observations: number; flags: number; visits: number; lastActive: string; score: number }[];
+    screenerData: { name: string; cdpo: string; mandal: string; screenings: number; quality: number; referrals: number; activeCases: number; lastActive: string }[];
+    cdpoOfficers: { name: string; cdpo: string; mandals: number; escalations: number; reports: number; lastLogin: string; status: string }[];
+    heatmapRows: string[];
+    heatmapWeeks: string[];
 }
