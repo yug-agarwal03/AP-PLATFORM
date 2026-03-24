@@ -131,11 +131,10 @@ export default function DpoShell({ children, userName, userRole, avatarUrl, brea
 
             <div className={`flex-1 transition-all duration-300 ${isSidebarCollapsed ? 'pl-[64px]' : 'pl-[240px]'}`}>
                 <header className="fixed top-0 right-0 left-0 h-[56px] bg-black z-[60] flex items-center justify-between px-6">
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-7 h-7 bg-white rounded flex items-center justify-center">
-                            <span className="text-black font-bold text-lg">J</span>
-                        </div>
-                        <span className="text-white text-[14px] font-semibold tracking-wider uppercase hidden sm:block">JIVEESHA</span>
+                    <div className="flex items-center gap-4 shrink-0">
+                        <img src="/whitelogo.png" alt="Jiveesha Logo" className="h-7 w-auto object-contain" />
+                        <div className="h-4 w-[1px] bg-[#333333]" />
+                        <span className="text-[#888888] text-[11px] font-bold tracking-widest uppercase hidden sm:block">DISTRICT COMMAND</span>
                     </div>
 
                     <div className="flex-1 px-8 hidden md:flex items-center justify-center text-[13px] gap-2">
