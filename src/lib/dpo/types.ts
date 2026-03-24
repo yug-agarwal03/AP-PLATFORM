@@ -72,6 +72,7 @@ export interface RiskAnalysisStats {
     riskHistory: { name: string; Low: number; Med: number; High: number; Crit: number }[];
     domainHeatmap: { domain: string; scores: number[] }[];
     highRiskChildren: {
+        id: string;
         shortId: string;
         name: string;
         age: string;
