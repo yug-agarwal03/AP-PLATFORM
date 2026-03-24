@@ -266,7 +266,7 @@ const DpoChildDetail: React.FC<DpoChildDetailProps> = ({ data }) => {
                                                         <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                                             <div className="h-full bg-black" style={{ width: `${(score as number) * 10}%` }} />
                                                         </div>
-                                                        <span className="text-[11px] font-black">{score}</span>
+                                                        <span className="text-[11px] font-black">{String(score)}</span>
                                                     </div>
                                                 ))}
                                             </div>

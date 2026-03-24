@@ -774,7 +774,7 @@ export async function getDpoEscalationsData(): Promise<DpoEscalationsData> {
     const validFlags = flags || []
 
     const now = new Date()
-    const getAge = (dob) => {
+    const getAge = (dob: string | Date | null | undefined) => {
         if (!dob) return 'Unknown'
         const d = new Date(dob)
         const diff = now.getTime() - d.getTime()
